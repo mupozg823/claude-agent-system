@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\gul80\\.claude\\commands\\logs\\.6bef4b8faba775abd3c819b334938c941eb851cd-audit.json",
+    "files": [
+        {
+            "date": 1772208060074,
+            "name": "C:\\Users\\gul80\\.claude\\commands\\logs\\error-2026-02-28.log",
+            "hash": "05e90a9a1ff2cd8c7273265544009dfffda8ad959deba00267def5eeabd9be79"
+        }
+    ],
+    "hashType": "sha256"
+}

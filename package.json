@@ -1,0 +1,10 @@
+{
+  "name": "claude-agent-hooks",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Claude Agent System v3 hooks and relay",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.98.0",
+    "playwright": "^1.58.2"
+  }
+}

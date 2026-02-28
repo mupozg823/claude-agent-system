@@ -1,0 +1,342 @@
+{
+  "version": "1.0",
+  "skills": [
+    {
+      "name": "log",
+      "keywords": ["로그", "기록", "저장", "log", "save session"],
+      "patterns": ["작업.*기록", "세션.*저장", "로그.*남겨", "작업.*로그"],
+      "priority": 90,
+      "category": "session"
+    },
+    {
+      "name": "continue",
+      "keywords": ["이어서", "계속", "continue", "resume", "이전 작업"],
+      "patterns": ["이어서.*작업", "이전.*이어", "계속.*진행", "마저.*해"],
+      "priority": 90,
+      "category": "session"
+    },
+    {
+      "name": "status",
+      "keywords": ["상태", "점검", "status", "시스템", "헬스체크"],
+      "patterns": ["상태.*확인", "시스템.*점검", "CPU", "메모리.*확인", "배터리"],
+      "priority": 85,
+      "category": "system"
+    },
+    {
+      "name": "review",
+      "keywords": ["리뷰", "검토", "review", "코드 리뷰"],
+      "patterns": ["코드.*리뷰", "검토.*해", "코드.*봐줘", "리뷰.*해줘"],
+      "priority": 70,
+      "category": "quality"
+    },
+    {
+      "name": "optimize",
+      "keywords": ["최적화", "정리", "cleanup", "optimize", "디스크"],
+      "patterns": ["시스템.*최적화", "디스크.*정리", "캐시.*정리", "불필요.*삭제"],
+      "priority": 60,
+      "category": "system"
+    },
+    {
+      "name": "deploy",
+      "keywords": ["배포", "deploy", "릴리스", "release", "push"],
+      "patterns": ["배포.*준비", "배포.*해줘", "릴리스", "프로덕션.*배포"],
+      "priority": 80,
+      "category": "devops"
+    },
+    {
+      "name": "fix-all",
+      "keywords": ["전체 수정", "fix all", "에러 수정", "린트", "타입에러"],
+      "patterns": ["전체.*수정", "에러.*다.*고쳐", "린트.*수정", "모든.*에러"],
+      "priority": 75,
+      "category": "quality"
+    },
+    {
+      "name": "new-project",
+      "keywords": ["새 프로젝트", "프로젝트 생성", "new project", "init", "boilerplate"],
+      "patterns": ["새.*프로젝트", "프로젝트.*만들", "프로젝트.*생성", "boilerplate"],
+      "priority": 80,
+      "category": "project"
+    },
+    {
+      "name": "t-refactor",
+      "keywords": ["리팩토링", "refactor", "클린코드", "정리", "구조 개선"],
+      "patterns": ["리팩토링.*해", "코드.*정리", "구조.*개선", "클린.*코드", "리팩터"],
+      "priority": 70,
+      "category": "quality"
+    },
+    {
+      "name": "t-pr-enhance",
+      "keywords": ["PR", "풀리퀘", "pull request", "PR 작성"],
+      "patterns": ["PR.*만들", "풀리퀘.*작성", "PR.*개선", "pull request"],
+      "priority": 70,
+      "category": "devops"
+    },
+    {
+      "name": "t-onboard",
+      "keywords": ["온보딩", "프로젝트 파악", "onboard", "코드베이스 이해"],
+      "patterns": ["프로젝트.*파악", "코드.*이해", "온보딩", "구조.*분석"],
+      "priority": 65,
+      "category": "project"
+    },
+    {
+      "name": "t-error-analysis",
+      "keywords": ["에러 분석", "오류", "error", "에러 해결", "에러 원인"],
+      "patterns": ["에러.*분석", "오류.*원인", "에러.*해결", "에러.*왜"],
+      "priority": 80,
+      "category": "debug"
+    },
+    {
+      "name": "t-doc-generate",
+      "keywords": ["문서화", "문서 생성", "docs", "API 문서", "README"],
+      "patterns": ["문서.*생성", "문서화.*해", "API.*문서", "문서.*작성"],
+      "priority": 60,
+      "category": "docs"
+    },
+    {
+      "name": "t-deps-upgrade",
+      "keywords": ["의존성 업그레이드", "패키지 업데이트", "deps upgrade", "업그레이드"],
+      "patterns": ["의존성.*업그레이드", "패키지.*업데이트", "deps.*upgrade", "버전.*올려"],
+      "priority": 65,
+      "category": "deps"
+    },
+    {
+      "name": "t-deps-audit",
+      "keywords": ["의존성 감사", "보안 점검", "deps audit", "취약점 스캔"],
+      "patterns": ["의존성.*감사", "보안.*점검", "취약점.*스캔", "deps.*audit"],
+      "priority": 65,
+      "category": "deps"
+    },
+    {
+      "name": "t-security-scan",
+      "keywords": ["보안 스캔", "security scan", "취약점", "보안 검사"],
+      "patterns": ["보안.*스캔", "보안.*검사", "취약점.*분석", "security.*scan"],
+      "priority": 75,
+      "category": "security"
+    },
+    {
+      "name": "t-smart-debug",
+      "keywords": ["디버그", "디버깅", "debug", "버그 추적"],
+      "patterns": ["디버그.*해", "디버깅", "버그.*추적", "원인.*찾아"],
+      "priority": 80,
+      "category": "debug"
+    },
+    {
+      "name": "t-standup",
+      "keywords": ["스탠드업", "standup", "일일 보고", "데일리"],
+      "patterns": ["스탠드업", "일일.*보고", "데일리", "오늘.*뭐했"],
+      "priority": 60,
+      "category": "report"
+    },
+    {
+      "name": "t-tech-debt",
+      "keywords": ["기술부채", "tech debt", "레거시", "부채 분석"],
+      "patterns": ["기술.*부채", "tech.*debt", "레거시.*분석", "부채.*정리"],
+      "priority": 65,
+      "category": "quality"
+    },
+    {
+      "name": "w-feature-dev",
+      "keywords": ["기능 개발", "feature", "새 기능", "구현"],
+      "patterns": ["기능.*개발", "기능.*구현", "새.*기능.*추가", "feature.*dev"],
+      "priority": 70,
+      "category": "workflow"
+    },
+    {
+      "name": "w-full-review",
+      "keywords": ["전체 리뷰", "종합 리뷰", "full review", "전면 검토"],
+      "patterns": ["전체.*리뷰", "종합.*리뷰", "전면.*검토", "full.*review"],
+      "priority": 70,
+      "category": "workflow"
+    },
+    {
+      "name": "w-git",
+      "keywords": ["깃", "git", "커밋", "브랜치", "머지"],
+      "patterns": ["커밋.*해", "브랜치.*만들", "머지.*해", "git.*workflow"],
+      "priority": 70,
+      "category": "workflow"
+    },
+    {
+      "name": "w-perf-optimize",
+      "keywords": ["성능 최적화", "performance", "속도 개선", "느린"],
+      "patterns": ["성능.*최적화", "속도.*개선", "느린.*수정", "performance.*optim"],
+      "priority": 70,
+      "category": "workflow"
+    },
+    {
+      "name": "w-security",
+      "keywords": ["보안 강화", "security hardening", "보안 아키텍처"],
+      "patterns": ["보안.*강화", "보안.*아키텍처", "security.*harden"],
+      "priority": 70,
+      "category": "workflow"
+    },
+    {
+      "name": "w-smart-fix",
+      "keywords": ["고쳐", "수정", "fix", "버그", "안돼", "에러"],
+      "patterns": ["고쳐.*줘", "수정.*해", "이거.*안돼", "버그.*수정", "작동.*안"],
+      "priority": 75,
+      "category": "workflow"
+    },
+    {
+      "name": "w-tdd-cycle",
+      "keywords": ["TDD", "테스트 주도", "test driven", "레드 그린"],
+      "patterns": ["TDD.*해", "테스트.*주도", "테스트.*먼저", "red.*green"],
+      "priority": 65,
+      "category": "workflow"
+    },
+    {
+      "name": "s-scope-decomposer",
+      "keywords": ["스코프", "분해", "에픽", "스토리", "RICE"],
+      "patterns": ["스코프.*분해", "에픽.*나눠", "요구사항.*분석", "RICE.*우선순위"],
+      "priority": 60,
+      "category": "planning"
+    },
+    {
+      "name": "s-best-practices-researcher",
+      "keywords": ["모범사례", "best practice", "가이드", "레퍼런스"],
+      "patterns": ["모범.*사례", "best.*practice", "가이드.*작성", "레퍼런스.*조사"],
+      "priority": 55,
+      "category": "research"
+    },
+    {
+      "name": "s-code-quality-checker",
+      "keywords": ["코드 품질", "메트릭", "복잡도", "품질 점수"],
+      "patterns": ["코드.*품질", "복잡도.*측정", "메트릭.*확인", "품질.*점수"],
+      "priority": 55,
+      "category": "quality"
+    },
+    {
+      "name": "s-dependency-upgrader",
+      "keywords": ["브레이킹 체인지", "마이그레이션", "breaking change"],
+      "patterns": ["브레이킹.*체인지", "마이그레이션.*패턴", "breaking.*change"],
+      "priority": 55,
+      "category": "deps"
+    },
+    {
+      "name": "s-security-auditor",
+      "keywords": ["보안 감사", "보안 룰", "OWASP", "보안 패턴"],
+      "patterns": ["보안.*감사", "보안.*룰", "OWASP.*체크", "보안.*패턴"],
+      "priority": 55,
+      "category": "security"
+    },
+    {
+      "name": "s-standards-researcher",
+      "keywords": ["표준 조사", "리서치", "출처", "가이드라인"],
+      "patterns": ["표준.*조사", "리서치.*가이드", "출처.*신뢰"],
+      "priority": 50,
+      "category": "research"
+    },
+    {
+      "name": "s-story-executor",
+      "keywords": ["스토리 실행", "태스크 실행", "칸반"],
+      "patterns": ["스토리.*실행", "태스크.*실행", "칸반.*업데이트"],
+      "priority": 55,
+      "category": "planning"
+    },
+    {
+      "name": "s-task-creator",
+      "keywords": ["태스크 생성", "할일 생성", "Linear", "티켓"],
+      "patterns": ["태스크.*생성", "할일.*만들", "Linear.*티켓", "태스크.*만들"],
+      "priority": 55,
+      "category": "planning"
+    },
+    {
+      "name": "think-harder",
+      "keywords": ["심층 분석", "깊이 생각", "think harder", "추론", "분석"],
+      "patterns": ["깊이.*생각", "심층.*분석", "자세히.*분석", "think.*hard"],
+      "priority": 65,
+      "category": "research"
+    },
+    {
+      "name": "reflection",
+      "keywords": ["검증", "자기 검증", "reflect", "재검토", "확인"],
+      "patterns": ["검증.*해", "맞는지.*확인", "다시.*확인", "reflect"],
+      "priority": 60,
+      "category": "quality"
+    },
+    {
+      "name": "eureka",
+      "keywords": ["브레인스토밍", "아이디어", "창의적", "eureka", "발상"],
+      "patterns": ["아이디어.*내", "브레인스토밍", "창의적.*해결", "다른.*방법"],
+      "priority": 55,
+      "category": "research"
+    },
+    {
+      "name": "context-save",
+      "keywords": ["컨텍스트 저장", "작업 저장", "상태 저장", "context save"],
+      "patterns": ["컨텍스트.*저장", "작업.*저장", "상태.*저장", "context.*save"],
+      "priority": 80,
+      "category": "session"
+    },
+    {
+      "name": "context-restore",
+      "keywords": ["컨텍스트 복원", "작업 복원", "context restore"],
+      "patterns": ["컨텍스트.*복원", "작업.*복원", "context.*restore"],
+      "priority": 80,
+      "category": "session"
+    },
+    {
+      "name": "code-explain",
+      "keywords": ["코드 설명", "코드 이해", "explain", "설명해"],
+      "patterns": ["코드.*설명", "이거.*뭐야", "어떻게.*작동", "explain.*code"],
+      "priority": 60,
+      "category": "docs"
+    },
+    {
+      "name": "code-migrate",
+      "keywords": ["마이그레이션", "전환", "migrate", "이전"],
+      "patterns": ["마이그레이션.*해", "전환.*해", "옮겨.*줘", "migrate"],
+      "priority": 65,
+      "category": "workflow"
+    },
+    {
+      "name": "docker-optimize",
+      "keywords": ["Docker", "도커", "컨테이너", "이미지 최적화"],
+      "patterns": ["도커.*최적화", "Docker.*optim", "이미지.*줄여", "컨테이너.*최적"],
+      "priority": 60,
+      "category": "devops"
+    },
+    {
+      "name": "api-scaffold",
+      "keywords": ["API", "엔드포인트", "스캐폴드", "scaffold", "REST"],
+      "patterns": ["API.*만들", "엔드포인트.*생성", "REST.*만들", "API.*scaffold"],
+      "priority": 65,
+      "category": "project"
+    },
+    {
+      "name": "incident-response",
+      "keywords": ["장애", "인시던트", "incident", "긴급", "프로덕션 오류"],
+      "patterns": ["장애.*대응", "인시던트", "프로덕션.*에러", "긴급.*수정"],
+      "priority": 85,
+      "category": "debug"
+    },
+    {
+      "name": "legacy-modernize",
+      "keywords": ["레거시 현대화", "modernize", "현대화", "레거시 교체"],
+      "patterns": ["레거시.*현대화", "레거시.*교체", "modernize", "오래된.*코드"],
+      "priority": 60,
+      "category": "quality"
+    },
+    {
+      "name": "prompt-optimize",
+      "keywords": ["프롬프트 최적화", "프롬프트", "prompt", "토큰 절약"],
+      "patterns": ["프롬프트.*최적화", "프롬프트.*개선", "토큰.*절약", "prompt.*optim"],
+      "priority": 55,
+      "category": "research"
+    }
+  ],
+  "categories": {
+    "session": { "label": "세션 관리", "priority_boost": 10 },
+    "debug": { "label": "디버깅", "priority_boost": 5 },
+    "quality": { "label": "코드 품질", "priority_boost": 0 },
+    "security": { "label": "보안", "priority_boost": 0 },
+    "devops": { "label": "DevOps", "priority_boost": 0 },
+    "workflow": { "label": "워크플로우", "priority_boost": 0 },
+    "deps": { "label": "의존성", "priority_boost": 0 },
+    "docs": { "label": "문서화", "priority_boost": 0 },
+    "project": { "label": "프로젝트", "priority_boost": 0 },
+    "planning": { "label": "기획", "priority_boost": -5 },
+    "research": { "label": "리서치", "priority_boost": -5 },
+    "system": { "label": "시스템", "priority_boost": 5 },
+    "report": { "label": "보고", "priority_boost": 0 }
+  }
+}

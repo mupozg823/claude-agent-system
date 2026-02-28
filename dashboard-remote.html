@@ -1,0 +1,2517 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#1A1A3A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;에이전트 개발국&quot;,&quot;short_name&quot;:&quot;개발국&quot;,&quot;start_url&quot;:&quot;.&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%231A1A3A&quot;,&quot;theme_color&quot;:&quot;%231A1A3A&quot;}">
+<title>에이전트 개발국 ++ (Remote)</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --gold:#FFD080;--gold-d:#8B6914;--gold-dd:#5A4008;--bg:#E8D8C0;--panel:#FFF0D0;--text:#2A1B0A;
+  --ok:#44AA44;--err:#CC3300;--warn:#CCAA22;--info:#6666CC;--accent:#CC6600;
+  --safe:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
+  /* Kairosoft palette */
+  --cream:#F5F1E8;--warm-red:#D4523C;--muted-teal:#6B9A8E;--rust:#8B6F47;
+  --warm-bg:#E8DCC8;--accent-gold:#D4A032;--kairo-border:#C4A06A;--kairo-panel:#FFF6E8;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#1A1A3A;color:var(--text);overflow:hidden;
+  height:100vh;height:100dvh;user-select:none;-webkit-tap-highlight-color:transparent;
+  -webkit-font-smoothing:antialiased;touch-action:manipulation}
+
+/* ── App Shell (mobile-first) ── */
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;position:relative}
+
+/* ── Top Bar ── */
+.top{background:#1A1A3A;border-bottom:3px solid var(--gold-d);display:flex;align-items:center;
+  padding:2px 10px;padding-top:calc(2px + var(--safe-t));gap:8px;min-height:40px;flex-shrink:0;z-index:20}
+.top .live{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:all .3s}
+.live.on{background:#44CC44;box-shadow:0 0 8px #44CC44}
+.live.off{background:#CC0000;box-shadow:0 0 8px #CC0000;animation:pulse 1.5s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.top .logo{font-size:13px;font-weight:bold;color:var(--gold);text-shadow:1px 1px 0 #000;white-space:nowrap}
+.top .logo .sub{font-size:9px;color:#BBCCDD;font-weight:normal}
+.stats{display:flex;gap:6px;flex:1;justify-content:flex-end;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.stats::-webkit-scrollbar{display:none}
+.stat{color:#DDD;font-size:11px;display:flex;align-items:center;gap:2px;white-space:nowrap;flex-shrink:0}
+.stat b{color:var(--gold);font-size:12px}
+.stat .delta{font-size:8px;margin-left:1px}
+.stat .delta.up{color:#44CC44}.stat .delta.dn{color:#CC3300}
+
+/* ── Scene (fills available space) ── */
+.scene{flex:1;position:relative;overflow:hidden;background:#D4C8A0;min-height:0}
+canvas{display:block;width:100%;height:100%}
+
+/* ── Connection Badge ── */
+.conn{position:absolute;top:6px;right:8px;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:bold;
+  z-index:10;border:2px solid;transition:all .3s;backdrop-filter:blur(4px)}
+.conn.on{background:#DFF5D0e0;color:#228B22;border-color:#228B22}
+.conn.off{background:#FFD0D0e0;color:#CC0000;border-color:#CC0000}
+
+/* ── Signal bars ── */
+.signal{display:inline-flex;gap:1px;align-items:flex-end;height:10px;margin-left:4px;vertical-align:middle}
+.signal i{width:3px;background:#228B22;border-radius:1px;transition:opacity .3s}
+.signal i:nth-child(1){height:3px}.signal i:nth-child(2){height:5px}.signal i:nth-child(3){height:7px}.signal i:nth-child(4){height:10px}
+.signal.weak i:nth-child(3),.signal.weak i:nth-child(4){opacity:.2}
+.signal.mid i:nth-child(4){opacity:.2}
+
+/* ── Toast Notifications ── */
+.toast-wrap{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:30;display:flex;flex-direction:column;gap:4px;
+  pointer-events:none;width:90%;max-width:360px}
+.toast{padding:6px 12px;border-radius:8px;font-size:11px;font-weight:bold;text-align:center;
+  animation:toastIn .3s ease-out;opacity:0;transition:opacity .3s}
+.toast.show{opacity:1}.toast.hide{opacity:0;transform:translateY(-10px)}
+.toast.ok{background:#228B22e0;color:#FFF}.toast.er{background:#CC0000e0;color:#FFF}.toast.in{background:#1A1A3Ae0;color:var(--gold)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Narration Bar ── */
+.narr{background:#FFF8E8;border-top:3px solid var(--gold-d);display:flex;align-items:center;
+  padding:6px 12px;gap:8px;min-height:40px;flex-shrink:0}
+.narr .face{min-width:28px;height:24px;border-radius:4px;border:2px solid var(--gold-d);display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:bold;font-family:monospace;
+  background:#1A1A3A;color:#44DD66;flex-shrink:0}
+.narr .txt{flex:1;font-size:12px;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.narr .cur{color:var(--gold-d);animation:blink .8s step-end infinite;font-size:10px}
+@keyframes blink{50%{opacity:0}}
+
+/* ── Bottom Nav ── */
+.bnav{display:flex;background:#1A1A3A;border-top:3px solid var(--gold-d);padding-bottom:var(--safe);flex-shrink:0;z-index:20}
+.bnav .nb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:8px 4px;border:none;background:none;font-family:inherit;color:#888;font-size:9px;cursor:pointer;
+  transition:all .2s;position:relative;min-height:48px;-webkit-tap-highlight-color:transparent}
+.bnav .nb .ico{font-size:18px;transition:transform .2s}
+.bnav .nb.active{color:var(--gold)}
+.bnav .nb.active .ico{transform:scale(1.15)}
+.bnav .nb:active{background:#2A2A5A}
+.bnav .nb .badge{position:absolute;top:4px;right:calc(50% - 18px);min-width:16px;height:16px;
+  background:var(--err);color:#FFF;font-size:8px;font-weight:bold;border-radius:8px;
+  display:none;align-items:center;justify-content:center;padding:0 3px}
+.bnav .nb .badge.show{display:flex}
+
+/* ── Panel Overlay (Bottom Sheet) ── */
+.panel-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#00000080;z-index:50;
+  opacity:0;pointer-events:none;transition:opacity .3s}
+.panel-overlay.open{opacity:1;pointer-events:auto}
+.panel-sheet{position:absolute;bottom:0;left:0;right:0;background:var(--bg);
+  border-radius:16px 16px 0 0;border-top:3px solid var(--gold-d);
+  transform:translateY(100%);transition:transform .35s cubic-bezier(.32,.72,.32,1);
+  max-height:85vh;display:flex;flex-direction:column;padding-bottom:var(--safe)}
+.panel-overlay.open .panel-sheet{transform:translateY(0)}
+.panel-handle{width:36px;height:4px;background:#C8A882;border-radius:2px;margin:8px auto 4px;flex-shrink:0}
+.panel-tabs{display:flex;padding:0 8px;gap:4px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.panel-tabs::-webkit-scrollbar{display:none}
+.ptab{padding:8px 14px;border:none;background:none;font-family:inherit;font-size:12px;font-weight:bold;
+  color:#8B7860;cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;transition:all .2s;
+  min-height:44px;display:flex;align-items:center;gap:4px}
+.ptab.active{color:var(--gold-dd);border-bottom-color:var(--gold-d)}
+.ptab:active{background:#D4B89640}
+.panel-body{flex:1;overflow-y:auto;padding:8px 10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.panel-body::-webkit-scrollbar{width:4px}
+.panel-body::-webkit-scrollbar-thumb{background:#C8A882;border-radius:2px}
+
+/* ── Log Entries ── */
+.le{padding:6px 8px;margin-bottom:3px;border-radius:6px;border-left:4px solid #C8A882;background:#FFF8E8;line-height:1.4;
+  transition:background .2s}
+.le.ok{border-color:var(--ok)}.le.er{border-color:var(--err)}.le.wr{border-color:var(--warn)}.le.in{border-color:var(--info)}
+.le .t{color:#8B7860;font-size:9px;margin-right:4px}
+.le .n{color:var(--accent);font-weight:bold;margin-right:4px;font-size:11px}
+.le .m{color:#4A3A2A;font-size:10px}
+
+/* ── Metric Bars ── */
+.sb{display:flex;align-items:center;gap:4px;margin-bottom:4px;min-height:22px}
+.sb .n{width:54px;text-align:right;color:var(--gold-dd);font-size:10px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb .b{flex:1;height:14px;background:#444;border:1px solid #222;border-radius:3px;overflow:hidden;position:relative}
+.sb .f{height:100%;min-width:1px;border-radius:2px;transition:width .6s ease}
+.sb .v{width:32px;text-align:right;font-weight:bold;color:var(--err);font-size:10px}
+/* Sparkline in metric bar */
+.sb .spark{position:absolute;right:2px;top:1px;height:12px;opacity:.4}
+
+/* ── Agent Cards (Kairosoft style) ── */
+.ac{display:flex;gap:8px;padding:8px 10px;margin-bottom:5px;background:var(--kairo-panel);
+  border:2px solid var(--kairo-border);border-radius:8px;transition:all .3s;min-height:64px;position:relative}
+.ac.on{background:#FFF0D0;border-color:var(--warm-red);box-shadow:0 2px 8px #D4523C20}
+.ac .fc{width:40px;height:40px;border-radius:6px;border:2px solid var(--gold-d);display:flex;
+  align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:all .3s;position:relative}
+.ac .fc .lvbadge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;background:var(--accent-gold);
+  color:#FFF;font-size:8px;font-weight:bold;border-radius:9px;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid #FFF;box-shadow:0 1px 2px #0003}
+.ac .i{flex:1;overflow:hidden}
+.ac .nm{font-weight:bold;font-size:12px;color:var(--rust)}
+.ac .rl{font-size:9px;color:var(--muted-teal);margin-left:4px}
+.ac .tk{font-size:11px;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+/* 4-stat bars (Kairosoft style) */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px;margin-top:4px}
+.stat-bar{display:flex;align-items:center;gap:3px}
+.stat-bar .sl{font-size:8px;color:var(--rust);width:12px;text-align:right;font-weight:bold}
+.stat-bar .sb2{flex:1;height:5px;background:#DDD;border-radius:2px;overflow:hidden}
+.stat-bar .sf{height:100%;border-radius:2px;transition:width .6s ease}
+.stat-bar .sv{font-size:7px;color:#888;width:14px}
+.pw{width:100%;height:6px;background:#444;margin-top:3px;overflow:hidden;border-radius:3px}
+.pw .pf{height:100%;border-radius:3px;transition:width .6s ease}
+
+/* ── Command Panel ── */
+.cmd-area{padding:4px 0}
+.cmd-row{display:flex;gap:6px;margin-bottom:6px}
+.cmd-row input{flex:1;padding:10px 12px;background:#FFF8E8;color:var(--text);border:2px solid #C8A882;
+  border-radius:8px;font-family:inherit;font-size:13px;min-height:44px}
+.cmd-row input:focus{outline:none;border-color:var(--gold-d);box-shadow:0 0 0 3px #8B691430}
+.cmd-row button{padding:10px 18px;background:linear-gradient(#FFE0A0,#FFC860);color:var(--gold-dd);
+  border:2px solid var(--gold-d);border-radius:8px;font-family:inherit;font-size:13px;font-weight:bold;
+  cursor:pointer;box-shadow:2px 2px 0 var(--gold-dd);min-height:44px;min-width:60px;
+  transition:all .15s;active:transform:translateY(1px)}
+.cmd-row button:active{transform:translateY(2px);box-shadow:0 0 0 var(--gold-dd)}
+.quick-cmds{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.qc{padding:8px 14px;background:#FFF8E8;border:2px solid #D4B896;border-radius:8px;font-size:11px;
+  cursor:pointer;font-family:inherit;color:var(--gold-dd);font-weight:bold;min-height:36px;
+  transition:all .15s;display:flex;align-items:center;gap:4px}
+.qc:active{background:#FFE8C0;border-color:var(--accent);transform:scale(.95)}
+.cmd-hist{max-height:50vh;overflow-y:auto}
+.cmd-entry{padding:6px 8px;margin-bottom:3px;border-radius:6px;border-left:4px solid var(--info);background:#FFF8E8;font-size:11px}
+.cmd-entry .ct{color:var(--accent);font-weight:bold}
+.cmd-entry .cs{font-size:9px;margin-left:4px}
+.cmd-entry .cs.queued{color:var(--ok)}.cmd-entry .cs.rejected{color:var(--err)}.cmd-entry .cs.pending{color:var(--warn)}.cmd-entry .cs.executing{color:var(--accent);animation:pulse 1s infinite}
+
+/* ── FAB (Floating Action Button) ── */
+.fab{position:fixed;bottom:calc(60px + var(--safe));right:12px;width:52px;height:52px;border-radius:50%;
+  background:linear-gradient(135deg,#FFE0A0,#FFC860);border:3px solid var(--gold-d);
+  box-shadow:0 4px 12px #00000040,2px 2px 0 var(--gold-dd);color:var(--gold-dd);font-size:22px;
+  cursor:pointer;z-index:40;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;-webkit-tap-highlight-color:transparent}
+.fab:active{transform:scale(.9)}
+.fab.hide{transform:scale(0);opacity:0;pointer-events:none}
+
+/* ── Setup Overlay ── */
+.setup-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#1A1A3Af0;z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.setup-box{background:var(--panel);border:3px solid var(--gold-d);border-radius:12px;
+  box-shadow:4px 4px 0 var(--gold-dd);padding:20px;max-width:380px;width:100%;
+  max-height:90vh;overflow-y:auto;margin:auto}
+.setup-box h2{color:var(--gold-dd);font-size:16px;margin-bottom:16px;text-align:center}
+.setup-box label{display:block;font-size:11px;color:#8B7860;margin:12px 0 4px;font-weight:bold}
+.setup-box input{width:100%;padding:10px 12px;background:#FFF8E8;color:var(--text);border:2px solid #C8A882;
+  border-radius:8px;font-family:inherit;font-size:12px;min-height:44px}
+.setup-box input:focus{outline:none;border-color:var(--gold-d)}
+.setup-box button{width:100%;padding:14px;margin-top:20px;background:linear-gradient(#FFE0A0,#FFC860);
+  color:var(--gold-dd);border:2px solid var(--gold-d);border-radius:8px;font-family:inherit;font-size:14px;
+  font-weight:bold;cursor:pointer;box-shadow:2px 2px 0 var(--gold-dd);min-height:48px}
+.setup-box button:active{transform:translateY(2px);box-shadow:none}
+.setup-box .hint{font-size:9px;color:#8B7860;margin-top:10px;text-align:center}
+
+/* ── Skeleton Loading ── */
+.skel{background:linear-gradient(90deg,#E8D8C0 25%,#F0E8D4 50%,#E8D8C0 75%);background-size:200%;
+  animation:shimmer 1.5s infinite;border-radius:4px}
+@keyframes shimmer{0%{background-position:200%}100%{background-position:-200%}}
+
+/* ── Desktop Override ── */
+@media(min-width:768px){
+  .fab{bottom:calc(60px + var(--safe));right:24px;width:56px;height:56px;font-size:24px}
+  .panel-sheet{max-width:600px;margin:0 auto;left:50%;right:auto;transform:translateX(-50%) translateY(100%);width:100%}
+  .panel-overlay.open .panel-sheet{transform:translateX(-50%) translateY(0)}
+}
+/* ── Landscape ── */
+@media(max-height:400px) and (orientation:landscape){
+  .narr{display:none}
+  .bnav .nb{padding:4px;min-height:40px}
+  .bnav .nb .ico{font-size:16px}
+  .bnav .nb span:last-child{display:none}
+}
+</style>
+</head>
+<body>
+<!-- Setup Overlay -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-box">
+    <h2>에이전트 개발국 ++ Remote</h2>
+    <label>Supabase URL</label>
+    <input id="cfgUrl" placeholder="https://xxxx.supabase.co" autocomplete="off">
+    <label>Anon Key</label>
+    <input id="cfgKey" placeholder="eyJhbGci..." autocomplete="off">
+    <label>Session ID</label>
+    <input id="cfgSession" placeholder="relay 시작 시 표시된 Session ID">
+    <button onclick="doConnect()">접속</button>
+    <div class="hint">설정은 localStorage에 저장됩니다. URL 파라미터로도 전달 가능.</div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div class="app" id="mainApp" style="display:none">
+<!-- Top Bar -->
+<div class="top">
+  <div class="live off" id="lv"></div>
+  <div class="logo">개발국 <span class="sub">Remote</span></div>
+  <div class="stats">
+    <div class="stat"><b id="sT">0</b>작업</div>
+    <div class="stat"><b id="sA">0</b><span class="delta" id="sAd"></span>승인</div>
+    <div class="stat"><b id="sD">0</b>차단</div>
+    <div class="stat"><b id="sO">-</b>ops/m</div>
+  </div>
+</div>
+
+<!-- Scene -->
+<div class="scene">
+  <canvas id="c"></canvas>
+  <div class="conn off" id="cs">연결 대기<span class="signal" id="sig"><i></i><i></i><i></i><i></i></span></div>
+  <div class="toast-wrap" id="toastWrap"></div>
+</div>
+
+<!-- Narration -->
+<div class="narr">
+  <div class="face" id="nf">SYS</div>
+  <div class="txt" id="nt">에이전트 개발국 Remote에 오신 것을 환영합니다!</div>
+  <div class="cur">▼</div>
+</div>
+
+<!-- Bottom Nav -->
+<nav class="bnav">
+  <button class="nb active" data-p="log" onclick="openPanel('log')">
+    <span class="ico">📜</span><span>로그</span><span class="badge" id="logBadge">0</span>
+  </button>
+  <button class="nb" data-p="metrics" onclick="openPanel('metrics')">
+    <span class="ico">📊</span><span>메트릭</span>
+  </button>
+  <button class="nb" data-p="agents" onclick="openPanel('agents')">
+    <span class="ico">👥</span><span>직원</span>
+  </button>
+  <button class="nb" data-p="cmd" onclick="openPanel('cmd')">
+    <span class="ico">💬</span><span>명령</span><span class="badge" id="cmdBadge">0</span>
+  </button>
+  <button class="nb" data-p="mcp" onclick="openPanel('mcp')">
+    <span class="ico">🔌</span><span>MCP</span>
+  </button>
+</nav>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" onclick="openPanel('cmd')">💬</button>
+
+<!-- Panel Bottom Sheet -->
+<div class="panel-overlay" id="panelOverlay" onclick="closePanel(event)">
+  <div class="panel-sheet" id="panelSheet">
+    <div class="panel-handle"></div>
+    <div class="panel-tabs">
+      <button class="ptab active" data-p="log" onclick="switchTab('log')">📜 활동 로그 <span id="lc" style="color:var(--accent)">0</span></button>
+      <button class="ptab" data-p="metrics" onclick="switchTab('metrics')">📊 메트릭스 <span id="mc"></span></button>
+      <button class="ptab" data-p="agents" onclick="switchTab('agents')">👥 직원 8</button>
+      <button class="ptab" data-p="cmd" onclick="switchTab('cmd')">💬 명령 <span id="cmdCount">0</span></button>
+      <button class="ptab" data-p="mcp" onclick="switchTab('mcp')">🔌 MCP/스킬</button>
+    </div>
+    <div class="panel-body" id="panelBody">
+      <!-- Content injected by JS -->
+      <div class="skel" style="height:20px;margin-bottom:6px"></div>
+      <div class="skel" style="height:20px;margin-bottom:6px;width:80%"></div>
+      <div class="skel" style="height:20px;width:60%"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Debug ──
+window.onerror=function(msg,src,line){console.error('JS Error:',msg,'line:',line)};
+
+// ── Supabase State ──
+let sbClient=null, channel=null;
+
+// ── State ──
+const P=window.innerWidth<=600?3:5;
+let serverMetrics=null, timeline=[], prevTotal=0;
+const TK={Bash:'터미널',Read:'파일읽기',Write:'파일쓰기',Edit:'코드편집',Grep:'패턴검색',Glob:'파일찾기',WebSearch:'웹검색',WebFetch:'웹수집',Task:'서브에이전트',Skill:'스킬',NotebookEdit:'노트북',TaskCreate:'태스크생성',TaskUpdate:'태스크갱신',TaskList:'태스크목록',TaskGet:'태스크조회',TaskOutput:'결과확인',TaskStop:'태스크중단',ToolSearch:'도구탐색',AskUserQuestion:'질의'};
+function tk(t){if(!t)return'대기';if(TK[t])return TK[t];if(t.startsWith('mcp__serena__'))return'Serena';if(t.startsWith('mcp__memory__'))return'메모리';if(t.startsWith('mcp__context7'))return'문서조회';if(t.startsWith('mcp__filesystem'))return'파일시스템';if(t.startsWith('mcp__grep'))return'코드검색';if(t.startsWith('mcp__seq'))return'추론';if(t.startsWith('mcp__'))return'MCP';return t}
+
+// ── Toast System ──
+function toast(msg,type='in'){
+  const wrap=document.getElementById('toastWrap');if(!wrap)return;
+  const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;
+  wrap.appendChild(el);requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>{el.classList.remove('show');el.classList.add('hide');setTimeout(()=>el.remove(),300)},2500);
+  while(wrap.children.length>3)wrap.firstChild.remove();
+}
+
+// ── Panel System ──
+let currentPanel='log', panelOpen=false, newLogCount=0;
+function openPanel(name){
+  currentPanel=name||'log';panelOpen=true;
+  document.getElementById('panelOverlay').classList.add('open');
+  document.getElementById('fabBtn').classList.add('hide');
+  switchTab(currentPanel);renderPanel();
+  document.querySelectorAll('.bnav .nb').forEach(b=>{b.classList.toggle('active',b.dataset.p===currentPanel)});
+  if(name==='log'){newLogCount=0;updateBadge('logBadge',0)}
+}
+function closePanel(e){if(e&&e.target!==e.currentTarget)return;
+  panelOpen=false;document.getElementById('panelOverlay').classList.remove('open');
+  document.getElementById('fabBtn').classList.remove('hide');
+}
+function switchTab(name){
+  currentPanel=name;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.toggle('active',t.dataset.p===name));
+  document.querySelectorAll('.bnav .nb').forEach(b=>b.classList.toggle('active',b.dataset.p===name));
+  renderPanel();
+}
+function updateBadge(id,n){const el=document.getElementById(id);if(!el)return;
+  el.textContent=n;el.classList.toggle('show',n>0);
+}
+
+// ── Sparkline ──
+const sparkData={ops:[],errs:[]};
+function addSpark(key,val){const a=sparkData[key];a.push(val);if(a.length>20)a.shift()}
+function drawSparkSvg(data,color,w,h){
+  if(data.length<2)return'';
+  const max=Math.max(1,...data),pts=data.map((v,i)=>`${(i/(data.length-1))*w},${h-v/max*(h-2)+1}`).join(' ');
+  return`<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.5"/></svg>`;
+}
+
+// ── Combo & Achievement System ──
+let combo=0, maxCombo=0, comboTimer=null, totalXP=0, achievements=[];
+const ACHIEVEMENTS=[
+  {id:'first',name:'첫 번째 작업',desc:'첫 도구 실행',cond:()=>entries.length>=1},
+  {id:'combo5',name:'콤보 5!',desc:'5연속 성공',cond:()=>maxCombo>=5},
+  {id:'combo10',name:'콤보 마스터',desc:'10연속 성공',cond:()=>maxCombo>=10},
+  {id:'ops50',name:'50작업 돌파',desc:'총 50회 도구 실행',cond:()=>entries.length>=50},
+  {id:'ops100',name:'백전노장',desc:'총 100회 도구 실행',cond:()=>entries.length>=100},
+  {id:'deny0',name:'무결점',desc:'차단 0으로 50작업',cond:()=>entries.length>=50&&entries.filter(e=>e.decision==='deny').length===0},
+  {id:'alltools',name:'만능 도구',desc:'5종류 이상 도구 사용',cond:()=>new Set(entries.map(e=>e.tool).filter(Boolean)).size>=5},
+  {id:'night',name:'야간 근무',desc:'밤 10시 이후 작업',cond:()=>new Date().getHours()>=22},
+];
+function checkAchievements(){
+  for(const a of ACHIEVEMENTS){
+    if(!achievements.includes(a.id)&&a.cond()){
+      achievements.push(a.id);
+      toast('업적 달성: '+a.name+'!','ok');
+      spawnP(cW()/2,cH()/2,12,'success');
+      narr('업적 달성! '+a.name+' - '+a.desc,'agent');
+    }
+  }
+}
+// ── Facility Combo System (Kairosoft) ──
+const FACILITY_COMBOS=[
+  {agents:['bash','writer'],name:'CI/CD 파이프라인',bonus:1.2,color:'#FF6644'},
+  {agents:['reader','finder','serena'],name:'코드 분석팀',bonus:1.5,color:'#4488FF'},
+  {agents:['mcp','web'],name:'외부 연동',bonus:1.3,color:'#44DDAA'},
+  {agents:['agent','bash'],name:'자동화 부서',bonus:1.4,color:'#AA88FF'},
+  {agents:['writer','reader'],name:'코드 리뷰',bonus:1.2,color:'#FF88AA'},
+  {agents:['serena','finder','reader'],name:'아키텍처 분석',bonus:1.6,color:'#FFCC44'},
+];
+let activeComboNames=[], facilityComboXP=0, comboCheckTimer=null;
+function checkFacilityCombos(){
+  const working=agents.filter(a=>a.st==='work').map(a=>a.t);
+  const newCombos=[];
+  for(const fc of FACILITY_COMBOS){
+    if(fc.agents.every(a=>working.includes(a))){
+      newCombos.push(fc.name);
+      if(!activeComboNames.includes(fc.name)){
+        // Newly activated combo
+        toast('콤보! '+fc.name+' (x'+fc.bonus+')','ok');
+        narr('시설 콤보 발동: '+fc.name,'agent');
+        facilityComboXP+=Math.floor(20*fc.bonus);
+        const cx2=cW()/2,cy2=cH()*.3;
+        for(let i=0;i<8;i++)spawnP(cx2+(Math.random()-.5)*80,cy2,2,'success');
+        spawnFloatingText(cx2,cy2,fc.name+' x'+fc.bonus,fc.color);
+      }
+    }
+  }
+  activeComboNames=newCombos;
+}
+
+let prevLevel=1;
+function addCombo(success){
+  if(success){combo++;if(combo>maxCombo)maxCombo=combo;
+    clearTimeout(comboTimer);comboTimer=setTimeout(()=>{combo=0},5000);
+    const xpGain=10+combo*2;
+    totalXP+=xpGain;
+    // Floating XP text (every 3rd success to avoid spam)
+    if(combo%3===1||combo>=5){
+      const fx=cW()*.1+Math.random()*cW()*.8, fy=cH()*.3+Math.random()*cH()*.2;
+      spawnFloatingText(fx,fy,'+'+xpGain+' XP',combo>=10?'#FF4444':combo>=5?'#FFAA22':'#88BBFF',combo>=5?14:11);
+    }
+    // Check facility combos every 5 successes
+    if(combo%5===0||combo===1)checkFacilityCombos();
+    if(combo>=5&&combo%5===0){toast(combo+'콤보!','ok');spawnP(cW()/2,cH()*.4,6+combo,'success')}
+    // Level up check
+    const newLvl=Math.floor(totalXP/500)+1;
+    if(newLvl>prevLevel){
+      prevLevel=newLvl;
+      toast('LEVEL UP! Lv.'+newLvl,'ok');
+      triggerShake(3);
+      for(let i=0;i<20;i++)spawnP(cW()*Math.random(),cH()*Math.random(),5,'success');
+      spawnFloatingText(cW()/2,cH()*.25,'LEVEL UP!','#FFD080',22);
+      spawnFloatingText(cW()/2,cH()*.32,'Lv.'+newLvl,'#FFFFFF',18);
+      // All agents celebrate
+      agents.forEach(a=>{a.compFx=20});
+    }
+    // Random agent joy bounce on success
+    const joyAg=agents[Math.floor(Math.random()*agents.length)];
+    if(joyAg&&joyAg.st==='work')joyAg.compFx=Math.max(joyAg.compFx||0,8);
+  }else{combo=0}
+  checkAchievements();
+}
+
+// ── Game Calendar (Kairosoft) ──
+// 2sec = 1 game minute, 1min = 1 game month
+const SESSION_START=Date.now();
+const SEASONS=['봄','여름','가을','겨울'];
+const SEASON_COLORS=['#6B9A8E','#D4523C','#D4A032','#6666CC'];
+function getGameCalendar(){
+  const elapsed=(Date.now()-SESSION_START)/1000; // seconds
+  const gameMins=Math.floor(elapsed/2);
+  const gameDay=Math.floor(gameMins/24)%30+1;
+  const gameMonth=Math.floor(gameMins/24/30)%12+1;
+  const gameYear=Math.floor(gameMins/24/30/12)+1;
+  const seasonIdx=Math.floor((gameMonth-1)/3);
+  return{
+    year:gameYear, month:gameMonth, day:gameDay,
+    season:SEASONS[seasonIdx], seasonColor:SEASON_COLORS[seasonIdx],
+    label:`Y${gameYear} ${SEASONS[seasonIdx]} ${gameMonth}월 ${gameDay}일`
+  };
+}
+
+// ── Tick Liveness & Lane Stats ──
+let lastTick=0, relayUptime=0, lastLaneStats=null, lastLaneStatsTime=0;
+
+// Characters - real dev agent names
+const C={
+  bash:{h:'#6644CC',s:'#4834D4',p:'#2A1B6A',l:'Shell',r:'명령실행',e:'$_',emoji:'🖥'},
+  reader:{h:'#4488CC',s:'#0984E3',p:'#06527A',l:'Reader',r:'파일분석',e:'{}',emoji:'📖'},
+  writer:{h:'#FF6699',s:'#D63031',p:'#8B1A1A',l:'Editor',r:'코드편집',e:'<>',emoji:'✏'},
+  finder:{h:'#44AA88',s:'#00796B',p:'#004040',l:'Search',r:'패턴검색',e:'??',emoji:'🔍'},
+  mcp:{h:'#44DDAA',s:'#00B894',p:'#006644',l:'MCP',r:'서버연동',e:'::',emoji:'🔌'},
+  agent:{h:'#AA88FF',s:'#6C5CE7',p:'#3D2B8A',l:'Agent',r:'오케스트라',e:'>>',emoji:'🎯'},
+  web:{h:'#FF88AA',s:'#E84393',p:'#8B2252',l:'Web',r:'웹리서치',e:'@',emoji:'🌐'},
+  serena:{h:'#FFCC44',s:'#B8860B',p:'#6B4E00',l:'Serena',r:'심볼분석',e:'fn',emoji:'🌿'},
+};
+
+let entries=[],fr=0,connected=false,lastET=0;
+// ══════════════════════════════════════════════════════
+// ── PIXI.JS v8 APPLICATION + CANVAS BRIDGE ──
+// ══════════════════════════════════════════════════════
+let pixiApp=null, pixiReady=false;
+const cv=document.getElementById('c'); // fallback ref
+let buf=document.createElement('canvas');
+let cx=buf.getContext('2d');
+let bg=null,bgW=0,bgH=0;
+let dpr=Math.min(window.devicePixelRatio||1,2);
+
+// Stage layers (populated after PixiJS init)
+let L={bg:null,weather:null,desks:null,agents:null,particles:null,hud:null,effects:null};
+let bgSprite=null, agentSprites=[], deskSprites=[], hudCanvas=null, hudCx=null, hudSprite=null;
+let agentCanvases=[], deskCanvases=[];
+
+// Character texture cache: type_state_dir_frameBucket → PIXI.Texture
+const texCache=new Map();
+const TEX_CACHE_MAX=400;
+
+function cW(){return pixiApp?pixiApp.screen.width:cv.width/dpr}
+function cH(){return pixiApp?pixiApp.screen.height:cv.height/dpr}
+
+async function initPixi(){
+  const container=document.querySelector('.scene');
+  if(!container||!window.PIXI){
+    console.warn('PixiJS not available, falling back to Canvas 2D');
+    initCanvasFallback();return;
+  }
+  try{
+    pixiApp=new PIXI.Application();
+    await pixiApp.init({
+      resizeTo:container,
+      background:0xD4C8A0,
+      antialias:false,
+      resolution:Math.min(window.devicePixelRatio||1,2),
+      autoDensity:true,
+      preference:'webgl',
+      powerPreference:'high-performance',
+    });
+    // Pixel art scaling
+    PIXI.TextureStyle.defaultOptions.scaleMode='nearest';
+    // Replace canvas element
+    const oldCanvas=container.querySelector('canvas');
+    if(oldCanvas)oldCanvas.remove();
+    pixiApp.canvas.style.cssText='display:block;width:100%;height:100%';
+    container.appendChild(pixiApp.canvas);
+    // Create stage layer hierarchy
+    const layerNames=['bg','weather','desks','agents','particles','hud','effects'];
+    layerNames.forEach(name=>{
+      L[name]=new PIXI.Container();
+      L[name].label=name;
+      pixiApp.stage.addChild(L[name]);
+    });
+    // Background sprite
+    bgSprite=new PIXI.Sprite();
+    L.bg.addChild(bgSprite);
+    // Agent sprites (8 agents)
+    for(let i=0;i<8;i++){
+      const ac=document.createElement('canvas');ac.width=80;ac.height=120;
+      agentCanvases.push(ac);
+      const sp=new PIXI.Sprite();
+      sp.anchor.set(0.5,0.5);
+      agentSprites.push(sp);
+      L.agents.addChild(sp);
+    }
+    // Desk screen sprites (8 desks)
+    for(let i=0;i<8;i++){
+      const dc=document.createElement('canvas');dc.width=50;dc.height=50;
+      deskCanvases.push(dc);
+      const sp=new PIXI.Sprite();sp.visible=false;
+      deskSprites.push(sp);
+      L.desks.addChild(sp);
+    }
+    // HUD canvas (drawn via Canvas 2D → texture)
+    hudCanvas=document.createElement('canvas');hudCanvas.width=240;hudCanvas.height=80;
+    hudCx=hudCanvas.getContext('2d');
+    hudSprite=new PIXI.Sprite();
+    L.hud.addChild(hudSprite);
+    // Offscreen buffer for character drawing
+    buf.width=80;buf.height=120;
+    cx=buf.getContext('2d');
+    dpr=1; // offscreen canvas uses 1:1 scale, PixiJS handles DPR
+    // 30fps ticker
+    pixiApp.ticker.maxFPS=30;
+    pixiReady=true;
+    console.log('PixiJS v8 initialized (WebGL)',pixiApp.screen.width+'x'+pixiApp.screen.height);
+  }catch(e){
+    console.error('PixiJS init failed:',e);
+    initCanvasFallback();
+  }
+}
+
+function initCanvasFallback(){
+  // Original Canvas 2D init (fallback)
+  pixiReady=false;
+  const mainCx=cv.getContext('2d');
+  function resize(){
+    const rect=cv.parentElement.getBoundingClientRect();
+    if(rect.width<10||rect.height<10)return;
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    cv.width=rect.width*dpr;cv.height=rect.height*dpr;
+    cv.style.width=rect.width+'px';cv.style.height=rect.height+'px';
+    buf.width=cv.width;buf.height=cv.height;
+    cx=buf.getContext('2d');cx.setTransform(dpr,0,0,dpr,0,0);
+    bg=null;
+  }
+  resize();window.addEventListener('resize',resize);
+  // Store mainCx for fallback render
+  window._mainCx=mainCx;
+}
+function initCanvas(){return initPixi()}
+
+// ══════════════════════════════════════════════════════
+// ── KAIROSOFT-STYLE CHARACTER (chibi: big head, small body) ──
+// ══════════════════════════════════════════════════════
+function drawCh(px,py,type,wf,dir,work,bub,ag){
+  const c=C[type]||C.agent, s=P;
+  const OL='#1A1A0A',SK='#FFD8B0',SK2='#EEBB88';
+  const idle=ag&&ag.st==='idle', mood=ag?ag.mood:0;
+
+  // Horizontal flip for left-facing characters
+  const flip=dir<0;
+  if(flip){cx.save();cx.translate(px*2,0);cx.scale(-1,1)}
+
+  if(work){
+    const bob=Math.sin(fr*.15)*.5;
+    const y=py+bob;
+    const tL=Math.sin(fr*.5)*1, tR=Math.sin(fr*.5+3.14)*1;
+    cx.fillStyle=c.s;
+    cx.fillRect(px-5*s,y+3*s+tL,2*s,2.5*s);
+    cx.fillRect(px+3*s,y+3*s+tR,2*s,2.5*s);
+    cx.fillStyle=SK;
+    cx.fillRect(px-5*s,y+5*s+tL,2*s,s);
+    cx.fillRect(px+3*s,y+5*s+tR,2*s,s);
+    cx.fillStyle=OL;cx.fillRect(px-4*s-1,y+1.5*s-1,8*s+2,4*s+2);
+    cx.fillStyle=c.s;cx.fillRect(px-4*s,y+1.5*s,8*s,4*s);
+    cx.fillStyle='#FFF';cx.fillRect(px-1.5*s,y+1.5*s,3*s,s);
+    cx.fillStyle=OL;cx.fillRect(px-5*s-1,y-5.5*s-1,10*s+2,7*s+2);
+    cx.fillStyle=SK;cx.fillRect(px-5*s,y-5.5*s,10*s,7*s);
+    cx.fillStyle='#FFAA8840';
+    cx.fillRect(px-4.5*s,y-1*s,2*s,1.5*s);
+    cx.fillRect(px+2.5*s,y-1*s,2*s,1.5*s);
+    cx.fillStyle=OL;cx.fillRect(px-5.5*s-1,y-7*s-1,11*s+2,3.5*s+2);
+    cx.fillStyle=c.h;cx.fillRect(px-5.5*s,y-7*s,11*s,3.5*s);
+    cx.fillRect(px-5.5*s,y-4*s,2*s,2.5*s);
+    cx.fillRect(px+3.5*s,y-4*s,2*s,2.5*s);
+    if(fr%100<97){
+      cx.fillStyle='#FFF';
+      cx.fillRect(px-3.5*s,y-3.5*s,3*s,2.5*s);
+      cx.fillRect(px+.5*s,y-3.5*s,3*s,2.5*s);
+      cx.fillStyle='#000';
+      cx.fillRect(px-2.5*s,y-3*s,1.8*s,1.8*s);
+      cx.fillRect(px+1.2*s,y-3*s,1.8*s,1.8*s);
+      cx.fillStyle='#FFF';
+      cx.fillRect(px-2.2*s,y-3*s,s*.6,s*.6);
+      cx.fillRect(px+1.5*s,y-3*s,s*.6,s*.6);
+    }else{
+      cx.fillStyle='#000';
+      cx.fillRect(px-3.5*s,y-2.5*s,3*s,s*.5);
+      cx.fillRect(px+.5*s,y-2.5*s,3*s,s*.5);
+    }
+    cx.fillStyle='#CC6644';
+    cx.fillRect(px-s*.5,y,fr%60<10?2*s:s,s*.5);
+    drawAccessory(px,y,type,s,true);
+    if(ag&&ag.wt>60){
+      const sw=((fr*2)%25);
+      cx.globalAlpha=1-sw/25;
+      cx.fillStyle='#88CCFF';
+      cx.fillRect(px+5*s,y-5*s+sw*.5,s*.5,s*.8);
+      cx.globalAlpha=1;
+    }
+    drawWorkFx(px,y,type,s);
+    if(flip)cx.restore();
+    drawStatusIcon(px+6.5*s,y-7*s,'gear');
+    if(bub) drawBub(px,y-9*s,bub);
+    drawNameTag(px,py+8*s,c);
+    return;
+  }
+
+  // ═══ STANDING / WALKING ═══
+  const bounce=Math.sin(wf*.3)*1;
+  const y=py+bounce;
+  const walk=ag&&ag.st==='walk';
+  const step=walk?Math.sin(wf*.35)*2:Math.sin(wf*.08)*.5;
+  cx.fillStyle='#00000020';
+  cx.fillRect(px-4*s,y+8.5*s,8*s,1.5*s);
+  cx.fillStyle=OL;
+  cx.fillRect(px-2.5*s,y+7*s+(step>0?-s*.5:0),2*s,2*s);
+  cx.fillRect(px+.5*s,y+7*s+(step<0?-s*.5:0),2*s,2*s);
+  cx.fillStyle=c.p;
+  cx.fillRect(px-2.3*s,y+7.2*s+(step>0?-s*.5:0),1.6*s,1.5*s);
+  cx.fillRect(px+.7*s,y+7.2*s+(step<0?-s*.5:0),1.6*s,1.5*s);
+  cx.fillStyle=OL;cx.fillRect(px-2.5*s-1,y+5.5*s-1,5*s+2,2*s+2);
+  cx.fillStyle=c.p;cx.fillRect(px-2.5*s,y+5.5*s,5*s,2*s);
+  cx.fillStyle=OL;cx.fillRect(px-3.5*s-1,y+2*s-1,7*s+2,4*s+2);
+  cx.fillStyle=c.s;cx.fillRect(px-3.5*s,y+2*s,7*s,4*s);
+  cx.fillStyle='#FFF';cx.fillRect(px-1.2*s,y+2*s,2.4*s,s*.8);
+  let armL=step*.3, armR=-step*.3;
+  if(idle&&mood===1){armL=-2;armR=-2}
+  if(idle&&mood===3){armR=-3}
+  cx.fillStyle=OL;
+  cx.fillRect(px-4.5*s-1,y+2.5*s+armL-1,1.5*s+2,3.5*s+2);
+  cx.fillRect(px+3*s-1,y+2.5*s+armR-1,1.5*s+2,3.5*s+2);
+  cx.fillStyle=c.s;
+  cx.fillRect(px-4.5*s,y+2.5*s+armL,1.5*s,3.5*s);
+  cx.fillRect(px+3*s,y+2.5*s+armR,1.5*s,3.5*s);
+  cx.fillStyle=SK;
+  cx.fillRect(px-4.5*s,y+5.5*s+armL,1.5*s,1.2*s);
+  cx.fillRect(px+3*s,y+5.5*s+armR,1.5*s,1.2*s);
+  if(idle&&mood===3){
+    cx.fillStyle='#FFF';cx.fillRect(px+3.5*s,y+2*s+armR,2*s,2.5*s);
+    cx.fillStyle='#8B6914';cx.fillRect(px+3.5*s,y+2*s+armR,2*s,.4*s);
+    cx.fillStyle='#6B3A1A';cx.fillRect(px+3.7*s,y+2.4*s+armR,1.6*s,1.6*s);
+    if(fr%40<25){cx.globalAlpha=.4;cx.fillStyle='#FFF';
+      cx.fillRect(px+4*s,y+1.2*s+armR-Math.sin(fr*.1)*s,s*.4,s*.7);
+      cx.fillRect(px+4.5*s,y+.8*s+armR-Math.cos(fr*.12)*s,s*.3,s*.5);
+      cx.globalAlpha=1}
+  }
+  let headOff=0;
+  if(idle&&mood===2)headOff=Math.sin(fr*.04)*2;
+  cx.fillStyle=OL;cx.fillRect(px-5*s-1+headOff,y-5*s-1,10*s+2,7*s+2);
+  cx.fillStyle=SK;cx.fillRect(px-5*s+headOff,y-5*s,10*s,7*s);
+  cx.fillStyle='#FFAA8840';
+  cx.fillRect(px-4.5*s+headOff,y-.5*s,2*s,1.5*s);
+  cx.fillRect(px+2.5*s+headOff,y-.5*s,2*s,1.5*s);
+  cx.fillStyle=OL;cx.fillRect(px-5.5*s-1+headOff,y-6.5*s-1,11*s+2,3.5*s+2);
+  cx.fillStyle=c.h;cx.fillRect(px-5.5*s+headOff,y-6.5*s,11*s,3.5*s);
+  cx.fillRect(px-5.5*s+headOff,y-3.5*s,2*s,2.5*s);
+  cx.fillRect(px+3.5*s+headOff,y-3.5*s,2*s,2.5*s);
+  const blk=fr%180>=176;
+  if(!blk&&!(idle&&mood===4)){
+    const ex=dir>0?s*.3:dir<0?-s*.3:0;
+    cx.fillStyle='#FFF';
+    cx.fillRect(px-3.5*s+headOff,y-3*s,3*s,2.5*s);
+    cx.fillRect(px+.5*s+headOff,y-3*s,3*s,2.5*s);
+    cx.fillStyle='#222';
+    cx.fillRect(px-2.5*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);
+    cx.fillRect(px+1.2*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);
+    cx.fillStyle='#FFF';
+    cx.fillRect(px-2.2*s+ex+headOff,y-2.5*s,s*.6,s*.6);
+    cx.fillRect(px+1.5*s+ex+headOff,y-2.5*s,s*.6,s*.6);
+  }else if(idle&&mood===4){
+    cx.fillStyle='#FFF';
+    cx.fillRect(px-3.5*s+headOff,y-2.5*s,3*s,1.2*s);
+    cx.fillRect(px+.5*s+headOff,y-2.5*s,3*s,1.2*s);
+    cx.fillStyle='#222';
+    cx.fillRect(px-2.5*s+headOff,y-2*s,1.5*s,s*.8);
+    cx.fillRect(px+1.2*s+headOff,y-2*s,1.5*s,s*.8);
+  }else{
+    cx.fillStyle='#222';
+    cx.fillRect(px-3*s+headOff,y-1.8*s,2.5*s,s*.4);
+    cx.fillRect(px+.5*s+headOff,y-1.8*s,2.5*s,s*.4);
+  }
+  cx.fillStyle='#CC6644';
+  if(idle&&mood===4){cx.fillRect(px-.5*s+headOff,y+.5*s,s*1.2,s*.8)}
+  else if(idle&&mood===1){cx.fillRect(px-s+headOff,y+.5*s,2*s,s*.3);cx.fillRect(px-.5*s+headOff,y+.7*s,s,s*.2)}
+  else if(walk){cx.fillRect(px-.3*s+headOff,y+.5*s,s*.6,s*.4)}
+  else{cx.fillRect(px-.5*s+headOff,y+.5*s,s,s*.4)}
+  drawAccessory(px+headOff,y,type,s,false);
+  if(ag&&ag.compFx>0){
+    cx.globalAlpha=ag.compFx/20;
+    cx.fillStyle='#FFD080';
+    cx.fillRect(px-6*s,y-7*s,12*s,16*s);
+    cx.globalAlpha=1;
+  }
+  if(flip)cx.restore();
+  if(idle){
+    if(mood===4) drawStatusIcon(px+6*s,y-7*s,'zzz');
+    else if(mood===0) drawStatusIcon(px+6*s,y-7*s,'idle');
+  }
+  drawNameTag(px,y+9*s,c);
+}
+
+// ── Agent accessories ──
+function drawAccessory(px,y,type,s,sitting){
+  switch(type){
+    case 'bash':
+      cx.fillStyle='#333';
+      cx.fillRect(px-5.8*s,y-4*s,1.2*s,3*s);
+      cx.fillRect(px+4.6*s,y-4*s,1.2*s,3*s);
+      cx.fillStyle='#555';
+      cx.fillRect(px-4*s,y-7.5*s,8*s,s*.8);
+      break;
+    case 'reader':
+      cx.fillStyle='#8B6914';
+      cx.fillRect(px-4*s,y-3.2*s,3.2*s,s*.4);
+      cx.fillRect(px+.8*s,y-3.2*s,3.2*s,s*.4);
+      cx.fillRect(px-4*s,y-3.2*s,s*.3,2.5*s);cx.fillRect(px-.8*s,y-3.2*s,s*.3,2.5*s);
+      cx.fillRect(px+.8*s,y-3.2*s,s*.3,2.5*s);cx.fillRect(px+3.7*s,y-3.2*s,s*.3,2.5*s);
+      cx.fillRect(px-.8*s,y-2.5*s,1.6*s,s*.3);
+      break;
+    case 'writer':
+      cx.fillStyle='#CC2244';
+      cx.fillRect(px-5*s,y-7.5*s,10*s,2*s);
+      cx.fillStyle='#FF4466';
+      cx.fillRect(px-5*s,y-7.5*s,10*s,s*.6);
+      cx.fillRect(px-s*.5,y-8*s,s,s);
+      break;
+    case 'finder':
+      cx.fillStyle='#556B2F';
+      cx.fillRect(px-5.5*s,y-7*s,11*s,1.5*s);
+      cx.fillRect(px-6*s,y-5.8*s,3*s,s);
+      break;
+    case 'mcp':
+      cx.fillStyle='#44DDAA';
+      cx.fillRect(px-.2*s,y-8.5*s,s*.4,2*s);
+      cx.fillStyle='#00FF88';
+      cx.fillRect(px-.5*s,y-9*s,s,s);
+      if(fr%30<15){cx.fillStyle='#00FF8860';cx.fillRect(px-s,y-9.5*s,2*s,2*s)}
+      break;
+    case 'agent':
+      if(!sitting){
+        cx.fillStyle='#CC3300';
+        cx.fillRect(px-.5*s,y+2.8*s,s,2.5*s);
+        cx.fillRect(px-.8*s,y+2.5*s,1.6*s,s*.6);
+      }
+      break;
+    case 'web':
+      cx.fillStyle='#333';
+      cx.fillRect(px-5.8*s,y-4*s,1.2*s,2.5*s);
+      cx.fillStyle='#444';
+      cx.fillRect(px-6.5*s,y-2*s,2*s,1.5*s);
+      cx.fillRect(px-6.5*s,y-2*s,s*.3,2*s);
+      break;
+    case 'serena':
+      cx.fillStyle='#FFD700';
+      cx.fillRect(px+3*s,y-6*s,2.5*s,1.5*s);
+      cx.fillStyle='#FFA500';
+      cx.fillRect(px+3.8*s,y-6*s,s*.8,1.5*s);
+      break;
+  }
+}
+
+function drawNameTag(px,y,c){
+  const nm=c.l;
+  cx.font='bold 11px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif';cx.textAlign='center';
+  const nw=cx.measureText(nm).width+14;
+  const tx=px-nw/2, ty=y, th=16;
+  // Shadow
+  cx.fillStyle='#00000018';
+  cx.beginPath();const r3=4;
+  cx.moveTo(tx+r3+1,ty+1);cx.lineTo(tx+nw-r3+1,ty+1);cx.arc(tx+nw-r3+1,ty+r3+1,r3,-Math.PI/2,0);
+  cx.lineTo(tx+nw+1,ty+th-r3+1);cx.arc(tx+nw-r3+1,ty+th-r3+1,r3,0,Math.PI/2);
+  cx.lineTo(tx+r3+1,ty+th+1);cx.arc(tx+r3+1,ty+th-r3+1,r3,Math.PI/2,Math.PI);
+  cx.lineTo(tx+1,ty+r3+1);cx.arc(tx+r3+1,ty+r3+1,r3,Math.PI,3*Math.PI/2);
+  cx.fill();
+  // Background
+  cx.fillStyle=c.p;
+  cx.beginPath();const r2=4;
+  cx.moveTo(tx+r2,ty);cx.lineTo(tx+nw-r2,ty);cx.arc(tx+nw-r2,ty+r2,r2,-Math.PI/2,0);
+  cx.lineTo(tx+nw,ty+th-r2);cx.arc(tx+nw-r2,ty+th-r2,r2,0,Math.PI/2);
+  cx.lineTo(tx+r2,ty+th);cx.arc(tx+r2,ty+th-r2,r2,Math.PI/2,Math.PI);
+  cx.lineTo(tx,ty+r2);cx.arc(tx+r2,ty+r2,r2,Math.PI,3*Math.PI/2);
+  cx.fill();
+  // Border
+  cx.strokeStyle='#00000030';cx.lineWidth=1;cx.stroke();
+  // Text
+  cx.fillStyle='#FFFFFFEE';cx.fillText(nm,px,y+12);
+}
+
+// ── Work effects ──
+function drawWorkFx(px,y,type,s){
+  cx.font='bold 9px monospace';cx.textAlign='center';
+  const phase=fr*.12;
+  switch(type){
+    case 'bash':
+      ['$_','>_','OK','#!','~~'].forEach((ch,i)=>{
+        const fy=((fr*2+i*25)%70);cx.globalAlpha=1-fy/70;
+        cx.fillStyle='#44DD66';
+        cx.fillText(ch,px+(Math.sin(i*2.1)*3-1)*s,y-8*s-fy*.4);
+      });break;
+    case 'reader':
+      for(let i=0;i<2;i++){
+        const fy=((fr*1.5+i*40)%60);cx.globalAlpha=.8-fy/75;
+        cx.fillStyle='#FFF';cx.fillRect(px+(i*2-1)*5*s,y-9*s-fy*.3,3*s,3.5*s);
+        cx.fillStyle='#6688CC';
+        for(let j=0;j<3;j++)cx.fillRect(px+(i*2-1)*5*s+s*.3,y-8.5*s+j*s-fy*.3,2.2*s,s*.25);
+      }break;
+    case 'writer':
+      ['</>','{;}','fn(','//!','==='].forEach((ch,i)=>{
+        const fy=((fr*2.2+i*20)%65);cx.globalAlpha=1-fy/65;
+        cx.fillStyle=['#FF6699','#FFAA22','#88BBFF','#44DD66','#CC88FF'][i];
+        cx.fillText(ch,px+(Math.sin(i*1.7)*3.5)*s,y-8*s-fy*.35);
+      });break;
+    case 'finder':
+      ['??','>>','**','..','!!'].forEach((ch,i)=>{
+        const fy=((fr*1.8+i*22)%60);cx.globalAlpha=1-fy/60;
+        cx.fillStyle='#44AA88';
+        cx.fillText(ch,px+(Math.cos(i*1.4)*3)*s,y-8*s-fy*.35);
+      });break;
+    case 'mcp':
+      for(let i=0;i<4;i++){
+        const ang=phase+i*Math.PI/2,r=(3+Math.sin(fr*.08+i)*1.5)*s;
+        cx.globalAlpha=.5+Math.sin(fr*.1+i)*.3;
+        cx.fillStyle='#44DDAA';
+        cx.fillRect(px+Math.cos(ang)*r-s*.4,y-8*s+Math.sin(ang)*r-s*.4,s*.8,s*.8);
+      }
+      cx.globalAlpha=1;cx.fillStyle='#00FF88';cx.fillRect(px-s*.5,y-8.5*s,s,s);
+      break;
+    case 'agent':
+      ['>>','>>','>>'].forEach((_,i)=>{
+        const fx=((fr*3+i*30)%80)-40;cx.globalAlpha=1-Math.abs(fx)/40;
+        cx.fillStyle='#AA88FF';
+        cx.fillRect(px+fx*.5,y-8*s-i*2*s,s*1.5,s*.8);
+      });break;
+    case 'web':
+      ['@','://','GET','200','www'].forEach((ch,i)=>{
+        const fy=((fr*2+i*18)%55);cx.globalAlpha=1-fy/55;
+        cx.fillStyle='#FF88AA';
+        cx.fillText(ch,px+(Math.sin(i*2.3)*3)*s,y-8*s-fy*.35);
+      });break;
+    case 'serena':
+      cx.fillStyle='#B8860B';cx.globalAlpha=.7;
+      cx.fillRect(px-s*.3,y-11*s,s*.6,4*s);
+      [[-2,-2],[2,-2.5],[-1.5,-3.5],[1.5,-4],[0,-5]].forEach(([bx,by],i)=>{
+        cx.fillStyle=['#44AA44','#228B22','#66CC66','#44AA44','#88DD88'][i];
+        cx.globalAlpha=.5+Math.sin(fr*.06+i)*.3;
+        cx.fillRect(px+bx*s,y-11*s+by*s,s*1.2,s*1.2);
+      });break;
+  }
+  cx.globalAlpha=1;
+}
+
+function drawStatusIcon(x,y,type){
+  if(type==='gear'){
+    const gfr=fr*.08;
+    cx.fillStyle='#FFD080';
+    for(let i=0;i<6;i++){
+      const a=gfr+i*Math.PI/3,r=3.5;
+      cx.fillRect(x+Math.cos(a)*r-1.5,y+Math.sin(a)*r-1.5,3,3);
+    }
+    cx.fillStyle='#8B6914';cx.fillRect(x-2,y-2,4,4);
+  }else if(type==='zzz'){
+    cx.font='bold 10px monospace';cx.textAlign='left';
+    const z=((fr>>4)%3);
+    cx.globalAlpha=.6;cx.fillStyle='#8888CC';
+    if(z>=0)cx.fillText('z',x,y);
+    if(z>=1)cx.fillText('z',x+5,y-6);
+    if(z>=2)cx.fillText('Z',x+9,y-13);
+    cx.globalAlpha=1;
+  }else if(type==='idle'){
+    cx.fillStyle='#AAAAAA';
+    const dp=(fr>>3)%4;
+    for(let i=0;i<3;i++){cx.globalAlpha=i<=dp?.6:.15;cx.fillRect(x+i*4,y,2,2)}
+    cx.globalAlpha=1;
+  }
+}
+
+function drawBub(x,y,t){
+  const d=t.length>16?t.slice(0,16)+'…':t;
+  cx.font='bold 12px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif';
+  const tw=cx.measureText(d).width;
+  const w=Math.max(tw+16,44), h=22;
+  const bx=x-w/2, by=y-h;
+  // Kairosoft-style bubble: warm cream bg, golden border, pixel shadow
+  cx.fillStyle='#1A1A0A30';cx.fillRect(bx+1,by+1,w,h);
+  // Background (warm cream)
+  const r=5;
+  cx.fillStyle='#FFF6E8';
+  cx.beginPath();
+  cx.moveTo(bx+r,by);cx.lineTo(bx+w-r,by);cx.arc(bx+w-r,by+r,r,-Math.PI/2,0);
+  cx.lineTo(bx+w,by+h-r);cx.arc(bx+w-r,by+h-r,r,0,Math.PI/2);
+  cx.lineTo(bx+r,by+h);cx.arc(bx+r,by+h-r,r,Math.PI/2,Math.PI);
+  cx.lineTo(bx,by+r);cx.arc(bx+r,by+r,r,Math.PI,3*Math.PI/2);
+  cx.fill();
+  // Golden border (Kairosoft accent)
+  cx.strokeStyle='#C4A06A';cx.lineWidth=1.5;cx.stroke();
+  // Top accent line
+  cx.fillStyle='#D4A032';cx.fillRect(bx+2,by,w-4,2);
+  // Tail (smaller, centered)
+  cx.fillStyle='#FFF6E8';cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x+3,y);cx.lineTo(x,y+4);cx.fill();
+  cx.strokeStyle='#C4A06A';cx.lineWidth=1;cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x,y+4);cx.lineTo(x+3,y);cx.stroke();
+  // Text
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillStyle='#8B6F47';cx.fillText(d,x,y-h/2);
+  cx.textBaseline='alphabetic';
+}
+
+// ── BACKGROUND CACHE ──
+function buildBg(w,h){
+  if(w<10||h<10)return;
+  const o=document.createElement('canvas');o.width=w*dpr;o.height=h*dpr;
+  const g=o.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  const fy=h*.55, s=P;
+  const wallGrad=g.createLinearGradient(0,0,0,fy);
+  wallGrad.addColorStop(0,'#FFF0D8');wallGrad.addColorStop(.7,'#F5E6C8');wallGrad.addColorStop(1,'#D4B896');
+  g.fillStyle=wallGrad;g.fillRect(0,0,w,fy);
+  g.fillStyle='#E8D4B020';
+  for(let x=0;x<w;x+=8)g.fillRect(x,0,1,fy);
+  g.fillStyle='#00000015';g.fillRect(0,fy-6,w,8);
+  g.fillStyle='#6B4E00';g.fillRect(0,fy-3,w,7);
+  g.fillStyle='#8B6914';g.fillRect(0,fy-3,w,5);
+  g.fillStyle='#A08030';g.fillRect(0,fy-3,w,2);
+  for(let x=0;x<w;x+=24)for(let y=fy+4;y<h;y+=12){
+    const shade=((x/24+y/12)%3===0)?0:((x/24+y/12)%3===1)?1:2;
+    g.fillStyle=['#5A9E50','#4D8A44','#3D7A35'][shade];
+    g.fillRect(x,y,24,12);
+    g.fillStyle='#FFFFFF06';g.fillRect(x,y,24,1);
+  }
+  const wx=w*.42, wW=110, wH=58;
+  g.fillStyle='#8B6914';g.fillRect(wx-4,6,wW+8,wH+8);
+  const skyG=g.createLinearGradient(wx,10,wx,10+wH);
+  skyG.addColorStop(0,'#88CCFF');skyG.addColorStop(.6,'#BBDDFF');skyG.addColorStop(1,'#E0F0FF');
+  g.fillStyle=skyG;g.fillRect(wx,10,wW,wH);
+  g.fillStyle='#FFFFFFCC';
+  [[15,18,16],[45,12,12],[75,20,14]].forEach(([cx2,cy,r])=>{
+    g.beginPath();g.arc(wx+cx2,10+cy,r,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(wx+cx2+r*.7,10+cy+2,r*.7,0,Math.PI*2);g.fill();
+  });
+  g.strokeStyle='#C8A882';g.lineWidth=3;g.strokeRect(wx,10,wW,wH);
+  g.lineWidth=2;
+  g.beginPath();g.moveTo(wx+wW/2,10);g.lineTo(wx+wW/2,10+wH);g.stroke();
+  g.beginPath();g.moveTo(wx,10+wH/2);g.lineTo(wx+wW,10+wH/2);g.stroke();
+  g.fillStyle='#FFE0A080';g.fillRect(wx-2,8,6,wH+6);g.fillRect(wx+wW-4,8,6,wH+6);
+  g.fillStyle='#FFF';g.beginPath();g.arc(w*.15,28,14,0,Math.PI*2);g.fill();
+  g.strokeStyle='#8B6914';g.lineWidth=3;g.stroke();
+  g.fillStyle='#8B6914';g.font='bold 5px sans-serif';g.textAlign='center';
+  ['12','3','6','9'].forEach((n,i)=>{
+    const a=i*Math.PI/2-Math.PI/2;
+    g.fillText(n,w*.15+Math.cos(a)*10,28+Math.sin(a)*10+2);
+  });
+  g.fillStyle='#4A3020';g.fillRect(w*.73-2,8,44,36);
+  g.fillStyle='#FFE8C0';g.fillRect(w*.73,10,40,32);
+  g.fillStyle='#CC3300';g.font='bold 9px sans-serif';g.textAlign='center';
+  g.fillText('BEST',w*.73+20,24);g.fillText('AGENT',w*.73+20,35);
+  g.fillStyle='#CC0000';g.beginPath();g.arc(w*.73+20,12,3,0,Math.PI*2);g.fill();
+  [[w*.25,5],[w*.75,5]].forEach(([lx,ly])=>{
+    g.fillStyle='#FFD080';g.fillRect(lx-8,ly,16,4);
+    g.fillStyle='#FFF8E0';g.fillRect(lx-6,ly+4,12,3);
+    const lg=g.createLinearGradient(lx,ly+7,lx,ly+45);
+    lg.addColorStop(0,'#FFD08020');lg.addColorStop(1,'#FFD08000');
+    g.fillStyle=lg;
+    g.beginPath();g.moveTo(lx-8,ly+7);g.lineTo(lx+8,ly+7);
+    g.lineTo(lx+25,ly+45);g.lineTo(lx-25,ly+45);g.closePath();g.fill();
+  });
+  [[w*.04,fy-10],[w*.96,fy-10]].forEach(([px2,py])=>{
+    g.fillStyle='#AA5533';g.fillRect(px2-6,py+8,12,10);
+    g.fillStyle='#CC6633';g.fillRect(px2-7,py+6,14,4);
+    g.fillStyle='#228B22';
+    [[-6,-8],[0,-14],[6,-8],[-3,-11],[3,-11]].forEach(([lx,ly])=>{
+      g.beginPath();g.arc(px2+lx,py+ly,5,0,Math.PI*2);g.fill();
+    });
+    g.fillStyle='#44AA44';
+    [[-4,-6],[2,-12],[5,-6]].forEach(([lx,ly])=>{
+      g.beginPath();g.arc(px2+lx,py+ly,4,0,Math.PI*2);g.fill();
+    });
+  });
+  DESKS.forEach((d,di)=>{
+    const x=d.x*w, dy=fy+2, ds=s*.8;
+    const ac=C[AT[di]];
+    g.fillStyle='#1A1A0A';g.fillRect(x-8*s-1,dy-1,16*s+2,2.5*ds+2);
+    g.fillStyle='#A07848';g.fillRect(x-8*s,dy,16*s,2.5*ds);
+    g.fillStyle='#8B683030';
+    for(let i=0;i<3;i++)g.fillRect(x-7*s,dy+i*ds*.8+ds*.2,14*s,1);
+    g.fillStyle='#B8884020';g.fillRect(x-8*s,dy,16*s,1);
+    g.fillStyle='#8B6914';g.fillRect(x-7*s,dy+2.5*ds,1.2*s,6*s);g.fillRect(x+5.8*s,dy+2.5*ds,1.2*s,6*s);
+    g.fillStyle='#1A1A0A';g.fillRect(x-4*s-1,dy-8*s-1,8*s+2,7.5*s+2);
+    g.fillStyle='#333';g.fillRect(x-4*s,dy-8*s,8*s,7.5*s);
+    g.fillStyle='#0A0A1A';g.fillRect(x-3.2*s,dy-7.5*s,6.4*s,5.8*s);
+    g.fillStyle=ac.s;g.fillRect(x-4*s,dy-8*s,8*s,1.5);
+    g.fillStyle='#555';g.fillRect(x-1*s,dy-.5*s,2*s,1*s);
+    g.fillRect(x-2*s,dy+.3*s,4*s,.5*s);
+    g.fillStyle='#444';g.fillRect(x-3*s,dy+1*s,6*s,1.8*s);
+    g.fillStyle='#555';g.fillRect(x-2.8*s,dy+1.2*s,5.6*s,1.4*s);
+    g.fillStyle='#666';
+    for(let r=0;r<3;r++)for(let k=0;k<6;k++){
+      g.fillRect(x-2.6*s+k*s*.9,dy+1.3*s+r*s*.45,s*.7,s*.35);
+    }
+    g.fillStyle='#555';g.fillRect(x+3.5*s,dy+1.5*s,1.2*s,1.8*s);
+    g.fillStyle='#666';g.fillRect(x+3.6*s,dy+1.6*s,1*s,.6*s);
+    g.fillStyle='#444';g.fillRect(x-3*s,dy+4*s,6*s,1.2*s);
+    g.fillStyle='#555';g.fillRect(x-2.8*s,dy+3.8*s,5.6*s,.4*s);
+    g.fillStyle='#3A3A3A';g.fillRect(x-2.5*s,dy+1.5*s,.6*s,2.5*s);
+    g.fillRect(x+1.9*s,dy+1.5*s,.6*s,2.5*s);
+    g.fillStyle='#666';g.fillRect(x-.3*s,dy+5.2*s,.6*s,2.5*s);
+    g.fillStyle='#333';
+    g.beginPath();g.arc(x-2*s,dy+8*s,.8*s,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(x+2*s,dy+8*s,.8*s,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(x,dy+8*s,.8*s,0,Math.PI*2);g.fill();
+    if(di%3===0){
+      g.fillStyle='#F5E6C8';g.fillRect(x+5*s,dy-s*.5,1.5*s,2*s);
+      g.fillStyle='#8B6914';g.fillRect(x+5*s,dy-s*.5,1.5*s,.4*s);
+      g.fillStyle='#6B3A1A';g.fillRect(x+5.2*s,dy-.1*s,1.1*s,1.2*s);
+    }else if(di%3===1){
+      g.fillStyle='#FFF';g.fillRect(x+5*s,dy-s*.8,2*s,1.5*s);
+      g.fillStyle='#EEE';g.fillRect(x+5.1*s,dy-s*.6,2*s,1.5*s);
+      g.fillStyle='#DDD';g.fillRect(x+5.2*s,dy-s*.4,2*s,1.5*s);
+    }else{
+      g.fillStyle='#FFEE88';g.fillRect(x+5*s,dy-s*.5,1.8*s,1.8*s);
+      g.fillStyle='#88BB44';g.fillRect(x+5.3*s,dy+.5*s,1.8*s,1.8*s);
+    }
+    const dl=d.label, dlw=dl.length*11+10;
+    g.fillStyle='#1A1A0ADD';g.fillRect(x-dlw/2-1,dy+9.5*s-1,dlw+2,18);
+    g.fillStyle=ac.p;g.fillRect(x-dlw/2,dy+9.5*s,dlw,16);
+    g.fillStyle=ac.s;g.fillRect(x-dlw/2,dy+9.5*s,dlw,2);
+    g.fillStyle='#FFF';g.font='bold 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';g.textAlign='center';
+    g.fillText(dl,x,dy+9.5*s+13);
+  });
+  bg=o;bgW=w;bgH=h;
+}
+
+// ── DESK ACTIVE SCREEN OVERLAY ──
+function drawActiveScreen(x,fy,agentType){
+  const s=P, dy=fy+2;
+  const sx=x-3.2*s, sy=dy-7.5*s, sw=6.4*s, sh=5.8*s;
+  const scroll=fr*.8;
+  switch(agentType){
+    case 'bash':
+      cx.fillStyle='#0A1A0A';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#44DD66';
+      const tLines=['$ git status','M  src/app.ts','$ npm run build','✓ compiled OK','$ node server'];
+      tLines.forEach((l,i)=>{
+        const ly=((i*s*1.2+scroll)%(sh+s*1.2))-s*1.2;
+        if(ly>0&&ly<sh){cx.font='6px monospace';cx.textAlign='left';cx.fillText(l,sx+2,sy+ly+6)}
+      });
+      if(fr%40<25){cx.fillRect(sx+sw-s*1.5,sy+sh-s*1.2,s*.6,s*.8)}
+      break;
+    case 'reader':
+      cx.fillStyle='#0A0A2A';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#6688CC';
+      for(let i=0;i<6;i++){
+        const lw=[4,5.5,3,5,4.5,2.5][i]*s;
+        cx.fillRect(sx+s*.3,sy+s*.4+i*s*.9,Math.min(lw,sw-s),s*.4);
+      }
+      cx.fillStyle='#FFDD4430';
+      const hl=((fr>>4)%5);
+      cx.fillRect(sx,sy+s*.3+hl*s*.9,sw,s*.6);
+      break;
+    case 'writer':
+      cx.fillStyle='#1E1E2E';cx.fillRect(sx,sy,sw,sh);
+      const cLines=[
+        [{c:'#C678DD',t:'const'},{c:'#ABB2BF',t:' x ='}],
+        [{c:'#C678DD',t:'func'},{c:'#61AFEF',t:' run'}],
+        [{c:'#98C379',t:'  "ok"'}],
+        [{c:'#E06C75',t:'  if'},{c:'#ABB2BF',t:' err'}],
+        [{c:'#56B6C2',t:'  ret'},{c:'#D19A66',t:' 42'}],
+        [{c:'#C678DD',t:'}'}],
+      ];
+      cx.font='6px monospace';cx.textAlign='left';
+      cLines.forEach((parts,i)=>{
+        let lx=sx+2;
+        parts.forEach(p=>{cx.fillStyle=p.c;cx.fillText(p.t,lx,sy+7+i*s*1.1);lx+=p.t.length*3.5});
+      });
+      cx.fillStyle='#5C6370';
+      for(let i=0;i<5;i++)cx.fillText(''+(i+1),sx-1,sy+7+i*s*1.1);
+      break;
+    case 'finder':
+      cx.fillStyle='#1A1A2A';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#44AA88';cx.font='6px monospace';cx.textAlign='left';
+      cx.fillText('? grep',sx+2,sy+7);
+      cx.fillStyle='#888';
+      ['src/a.ts:12','lib/b.js:45','pkg/c.rs:89'].forEach((l,i)=>{
+        cx.fillText(l,sx+2,sy+7+(i+1)*s*1.2);
+      });
+      cx.fillStyle='#FFDD4440';
+      cx.fillRect(sx+s*2,sy+s*1.3+((fr>>4)%3)*s*1.2,s*2,s*.8);
+      break;
+    case 'mcp':
+      cx.fillStyle='#0A1A1A';cx.fillRect(sx,sy,sw,sh);
+      const nodes=[[.3,.3],[.7,.25],[.5,.6],[.2,.7],[.8,.7]];
+      cx.fillStyle='#44DDAA';
+      nodes.forEach(([nx,ny])=>cx.fillRect(sx+sw*nx-2,sy+sh*ny-2,4,4));
+      cx.fillStyle='#44DDAA40';
+      [[0,1],[0,2],[1,2],[2,3],[2,4]].forEach(([a,b])=>{
+        const[ax,ay]=nodes[a],[bx,by]=nodes[b];
+        const prog=((fr*.02+a*.3)%1);
+        cx.fillRect(sx+sw*(ax+(bx-ax)*prog)-1,sy+sh*(ay+(by-ay)*prog)-1,3,3);
+      });
+      break;
+    case 'agent':
+      cx.fillStyle='#1A1020';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#AA88FF';cx.font='6px monospace';cx.textAlign='left';
+      cx.fillText('TASKS',sx+2,sy+7);
+      ['#1 run','#2 build','#3 test'].forEach((l,i)=>{
+        cx.fillStyle=i===((fr>>5)%3)?'#FFDD44':'#8866CC';
+        cx.fillText(' '+l,sx+2,sy+14+i*s*1.1);
+      });
+      break;
+    case 'web':
+      cx.fillStyle='#FFF';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#E8E8E8';cx.fillRect(sx,sy,sw,s*1.2);
+      cx.fillStyle='#888';cx.font='5px monospace';cx.textAlign='left';
+      cx.fillText('https://',sx+2,sy+s*.9);
+      cx.fillStyle='#EEEEFF';cx.fillRect(sx+s*.3,sy+s*1.8,sw-s*.6,s*1.5);
+      cx.fillStyle='#DDDDEE';cx.fillRect(sx+s*.3,sy+s*3.6,sw*.5,s*1);
+      cx.fillStyle='#CCDDFF';cx.fillRect(sx+s*.3+sw*.55,sy+s*3.6,sw*.35,s*1);
+      break;
+    case 'serena':
+      cx.fillStyle='#1A1510';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#B8860B';cx.font='6px monospace';cx.textAlign='left';
+      const syms=['class Foo','  fn bar','  fn baz','  val x','impl Tr'];
+      syms.forEach((l,i)=>{
+        cx.fillStyle=i===((fr>>4)%5)?'#FFD080':'#8B6914';
+        cx.fillText(l,sx+2,sy+7+i*s*1);
+      });
+      break;
+    default:
+      cx.fillStyle='#114422';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#44DD66';
+      cx.fillRect(sx+s*.4,sy+s*.5,3.5*s,s*.6);
+      cx.fillRect(sx+s*.4,sy+s*1.8,5*s,s*.6);
+      if(fr%60<35)cx.fillRect(sx+s*3,sy+sh-s*1.5,s*.7,s*.7);
+  }
+  cx.fillStyle='#00000012';
+  for(let i=0;i<sh;i+=2)cx.fillRect(sx,sy+i,sw,1);
+  cx.fillStyle=agentType==='web'?'#FFFFFF08':'#44FF6608';
+  cx.fillRect(sx-1,sy-1,sw+2,sh+2);
+}
+
+const DESKS=[
+  {x:.07,label:'Shell',act:false},{x:.19,label:'Reader',act:false},
+  {x:.31,label:'Editor',act:false},{x:.43,label:'Search',act:false},
+  {x:.55,label:'MCP',act:false},{x:.67,label:'Agent',act:false},
+  {x:.79,label:'Web',act:false},{x:.91,label:'Serena',act:false},
+];
+
+// ── AGENTS ──
+class Ag{
+  constructor(t,i){this.t=t;this.i=i;this.x=DESKS[i].x+(Math.random()-.5)*.02;this.y=.78;this.tx=this.x;this.ty=this.y;
+    this.d=1;this.st='idle';this.wf=Math.random()*100;this.tk='';this.wt=0;this.di=-1;
+    this.xp=0;this.lv=1;this.pw=100;this.tot=0;
+    this.mood=0;this.moodTimer=60+Math.random()*120;
+    this.compFx=0;
+    // Kairosoft 4-stat system
+    this.stats={code:0,research:0,network:0,speed:0};
+    this._lastOpsTs=Date.now();this._recentOps=0}
+  go(tk){
+    this.di=this.i;const d=DESKS[this.i];
+    this.tx=d.x+(Math.random()-.5)*.02;this.ty=.48;
+    this.st='walk';this.tk=tk;this.wt=60+Math.random()*80;
+    this.tot++;this.pw=Math.max(0,this.pw-5);
+    this.mood=0;
+    this.xp+=8+Math.floor(Math.random()*7);
+    // Track speed stat (ops per minute window)
+    this._recentOps++;
+    const elapsed=(Date.now()-this._lastOpsTs)/60000;
+    if(elapsed>=1){this.stats.speed=Math.min(99,Math.round(this._recentOps/elapsed));this._recentOps=0;this._lastOpsTs=Date.now()}
+    if(this.xp>=this.lv*80){this.xp-=this.lv*80;this.lv++;
+      narr(C[this.t].l+' Lv.'+this.lv+' 레벨업!',this.t);
+      spawnP(d.x*cW(),cH()*.55,8);
+      spawnFloatingText(d.x*cW(),cH()*.45,'LV UP!','#FFD080')}
+    DESKS[this.i].act=true;
+  }
+  up(){
+    if(this.compFx>0)this.compFx--;
+    if(this.st==='walk'){
+      const dx=this.tx-this.x,dy=this.ty-this.y;
+      // Speed scales with activity intensity + opsPerMin
+      const ai=getActivityIntensity();
+      const opm=(serverMetrics&&serverMetrics.opsPerMin||0)/100;
+      const spd=.06+Math.min(.08,Math.max(ai,opm)*.08);
+      if(Math.hypot(dx,dy)>.004){this.x+=dx*spd;this.y+=dy*spd;this.d=dx>0?1:-1;this.wf++}
+      else{this.st=this.di>=0?'work':'idle'} // keep last direction (don't reset to 1)
+    }else if(this.st==='work'){
+      this.wt--;
+      if(this.wt<=0){
+        DESKS[this.i].act=false;this.tk='';
+        this.compFx=20;
+        spawnP(DESKS[this.i].x*cW(),cH()*.55,5);
+        this.tx=DESKS[this.i].x+(Math.random()-.5)*.03;this.ty=.78+Math.random()*.03;
+        this.st='walk';this.di=-1;this.pw=Math.min(100,this.pw+3)}
+    }else{
+      this.pw=Math.min(100,this.pw+.02);
+      this.moodTimer--;
+      if(this.moodTimer<=0){
+        this.mood=(this.mood+1)%5;
+        this.moodTimer=80+Math.random()*160;
+      }
+      if(Math.random()<.003){this.tx=DESKS[this.i].x+(Math.random()-.5)*.04;
+        this.ty=Math.max(.73,Math.min(.84,this.y+(Math.random()-.5)*.03));this.st='walk'}
+      // Random direction change while idle (looking around)
+      if(Math.random()<.005)this.d=this.d>0?-1:1;
+    }
+  }
+  draw(w,h){drawCh(this.x*w,this.y*h,this.t,this.wf,this.d,this.st==='work',this.st==='work'?this.tk:'',this)}
+}
+const AT=['bash','reader','writer','finder','mcp','agent','web','serena'];
+let agents=AT.map((t,i)=>new Ag(t,i));
+
+// Tool→Agent mapping (aligned with Claude Code architecture)
+// 0:bash 1:reader 2:writer 3:finder 4:mcp 5:agent 6:web 7:serena
+function t2a(t){
+  if(!t)return 5;
+  // Core tools
+  if(t==='Bash')return 0;
+  if(t==='Read')return 1;
+  if('Write Edit NotebookEdit'.includes(t))return 2;
+  if(t==='Grep'||t==='Glob')return 3;
+  if(t==='WebSearch'||t==='WebFetch')return 6;
+  // Agent/orchestration tools
+  if('Task Skill TaskCreate TaskUpdate TaskList TaskGet TaskStop TaskOutput AskUserQuestion EnterPlanMode ExitPlanMode'.includes(t))return 5;
+  if(t==='ToolSearch')return 3; // searching for tools → finder
+  // MCP tools (granular mapping)
+  if(t.startsWith('mcp__serena'))return 7;
+  if(t.startsWith('mcp__grep'))return 3;        // grep-app → finder
+  if(t.startsWith('mcp__context7'))return 6;     // docs → web
+  if(t.startsWith('mcp__filesystem'))return 1;   // file ops → reader
+  if(t.startsWith('mcp__memory'))return 5;       // knowledge graph → agent
+  if(t.startsWith('mcp__seq'))return 5;          // sequential thinking → agent
+  if(t.startsWith('mcp__claude_ai_Notion'))return 6; // Notion → web
+  if(t.startsWith('mcp__'))return 4;             // other MCP → mcp
+  return 5;
+}
+
+function desc(e){
+  const t=e.tool||'',s=e.summary||e.cmd||'';
+  if(t==='Bash'){const c=e.cmd||s;if(c.includes('git'))return'Git';if(c.includes('npm')||c.includes('node'))return'Node';if(c.includes('curl')||c.includes('wget'))return'네트워크';if(c.includes('docker'))return'Docker';if(c.includes('test')||c.includes('jest'))return'테스트';return'명령실행'}
+  if(t==='Read'){const f=(e.path||s).split(/[/\\]/).pop();return f?f.slice(0,14):'파일읽기'}
+  if(t==='Write'){const f=(e.path||s).split(/[/\\]/).pop();return f?'생성:'+f.slice(0,10):'파일생성'}
+  if(t==='Edit'){const f=(e.path||s).split(/[/\\]/).pop();return f?'수정:'+f.slice(0,10):'코드수정'}
+  if(t==='NotebookEdit')return'노트북편집';
+  if(t==='Grep')return'코드검색';if(t==='Glob')return'파일탐색';
+  if(t==='WebSearch')return'웹검색';if(t==='WebFetch')return'페이지수집';
+  if(t==='Task')return'서브에이전트';if(t==='Skill')return'스킬실행';
+  if(t==='ToolSearch')return'도구탐색';if(t==='AskUserQuestion')return'사용자질의';
+  if(t==='EnterPlanMode')return'계획수립';if(t==='ExitPlanMode')return'계획완료';
+  if('TaskCreate TaskUpdate TaskList TaskGet'.includes(t))return'태스크관리';
+  if(t.startsWith('mcp__serena'))return'Serena:'+t.split('__').pop().slice(0,10);
+  if(t.startsWith('mcp__grep'))return'코드검색(외부)';
+  if(t.startsWith('mcp__context7'))return'문서조회';
+  if(t.startsWith('mcp__filesystem'))return'파일시스템';
+  if(t.startsWith('mcp__memory'))return'지식그래프';
+  if(t.startsWith('mcp__seq'))return'추론체인';
+  if(t.startsWith('mcp__claude_ai_Notion'))return'Notion';
+  if(t.startsWith('mcp__'))return'MCP:'+t.split('__')[1];
+  return tk(t);
+}
+
+// ── PARTICLES (PixiJS native + Canvas 2D fallback) ──
+let pts=[];
+const TOOL_COLORS={
+  Bash:['#44DD66','#22CC44','#66FF88'],
+  Read:['#4488FF','#6699FF','#88BBFF'],
+  Write:['#FF6699','#FF88AA','#FF44CC'],
+  Edit:['#FFAA22','#FFCC44','#FF8800'],
+  Grep:['#44DDAA','#66FFCC','#22BB88'],
+  Glob:['#44DDAA','#22BB88','#88FFDD'],
+  WebSearch:['#AA88FF','#CC99FF','#8866DD'],
+  WebFetch:['#AA88FF','#8866DD','#CCAAFF'],
+  Task:['#FFDD44','#FFE866','#FFCC00'],
+  ToolSearch:['#88CCDD','#66BBCC','#AADDEE'],
+};
+
+// Pre-built PixiJS particle textures (created once)
+const pixiPtexCache=new Map();
+function getParticleTexture(color,shape,size){
+  const key=color+shape+size;
+  if(pixiPtexCache.has(key))return pixiPtexCache.get(key);
+  const g=new PIXI.Graphics();
+  const c=PIXI.Color?new PIXI.Color(color).toNumber():parseInt(color.replace('#',''),16);
+  if(shape==='circle'){g.circle(0,0,size/2).fill(c)}
+  else if(shape==='star'){g.rect(-size/2,-size*.15,size,size*.3).fill(c);g.rect(-size*.15,-size/2,size*.3,size).fill(c)}
+  else{g.rect(0,0,size,size).fill(c)}
+  const tex=pixiApp.renderer.generateTexture(g);
+  g.destroy();
+  if(pixiPtexCache.size>200){const first=pixiPtexCache.keys().next().value;pixiPtexCache.get(first).destroy();pixiPtexCache.delete(first)}
+  pixiPtexCache.set(key,tex);
+  return tex;
+}
+
+// ── Floating Text System (Kairosoft "+XP", "LV UP!", combo names) ──
+let floatingTexts=[];
+function spawnFloatingText(x,y,text,color,size){
+  const ft={x,y,text,color:color||'#FFD080',size:size||12,life:60,vy:-1.2,alpha:1,sprite:null};
+  if(pixiReady&&L.effects){
+    try{
+      const t=new PIXI.Text({text,style:{fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+        fontWeight:'bold',fontSize:ft.size,fill:ft.color,dropShadow:true,dropShadowColor:'#000000',
+        dropShadowDistance:1,dropShadowAlpha:0.6}});
+      t.anchor.set(0.5);t.x=x;t.y=y;
+      L.effects.addChild(t);ft.sprite=t;
+    }catch(e){}
+  }
+  floatingTexts.push(ft);
+}
+function updateFloatingTexts(){
+  floatingTexts=floatingTexts.filter(ft=>{
+    ft.y+=ft.vy;ft.life--;ft.alpha=Math.min(ft.life/20,1);
+    if(ft.life<=0){if(ft.sprite){ft.sprite.destroy();ft.sprite=null}return false}
+    if(ft.sprite){ft.sprite.x=ft.x;ft.sprite.y=ft.y;ft.sprite.alpha=ft.alpha}
+    else if(!pixiReady){
+      // Canvas 2D fallback
+      cx.globalAlpha=ft.alpha;
+      cx.font=`bold ${ft.size}px -apple-system,sans-serif`;cx.textAlign='center';
+      cx.fillStyle='#00000080';cx.fillText(ft.text,ft.x+1,ft.y+1);
+      cx.fillStyle=ft.color;cx.fillText(ft.text,ft.x,ft.y);
+      cx.globalAlpha=1;
+    }
+    return true;
+  });
+}
+
+function spawnP(x,y,n,type,tool){
+  if(pts.length>120)return;
+  const colors=type==='error'?['#FF3300','#FF6644','#CC0000']:
+    type==='success'?(TOOL_COLORS[tool]||['#44DD66','#88FF88','#22AA44']):
+    ['#FFD080','#FFAA22','#FF6644','#FFDD44','#88BBFF'];
+  for(let i=0;i<Math.min(n,12);i++){
+    const shape=type==='error'?'rect':Math.random()>.6?'star':Math.random()>.3?'circle':'rect';
+    const sz=2+Math.random()*3.5;
+    const color=colors[i%colors.length];
+    const p={x:x+(Math.random()-.5)*14,y:y+(Math.random()-.5)*6,
+      vx:(Math.random()-.5)*4.5,vy:-Math.random()*4.5-1,
+      l:35+Math.random()*25,c:color,
+      z:sz,shape,rot:Math.random()*6.28,rv:(Math.random()-.5)*.25,
+      sprite:null};
+    // Create PixiJS sprite for this particle
+    if(pixiReady&&L.particles){
+      try{
+        const tex=getParticleTexture(color,shape,Math.ceil(sz));
+        const sp=new PIXI.Sprite(tex);
+        sp.anchor.set(0.5);sp.x=p.x;sp.y=p.y;sp.rotation=p.rot;
+        L.particles.addChild(sp);
+        p.sprite=sp;
+      }catch(e){}
+    }
+    pts.push(p);
+  }
+}
+
+function drawPts(){pts=pts.filter(p=>{
+  p.x+=p.vx;p.y+=p.vy;p.vy+=.06;p.vx*=.985;p.l--;p.rot+=p.rv;
+  if(p.l<=0){
+    if(p.sprite){p.sprite.destroy();p.sprite=null}
+    return false;
+  }
+  const alpha=Math.min(p.l/25,1);
+  if(p.sprite){
+    // PixiJS mode: update sprite transform
+    p.sprite.x=p.x;p.sprite.y=p.y;p.sprite.rotation=p.rot;p.sprite.alpha=alpha;
+  }else{
+    // Canvas 2D fallback
+    cx.globalAlpha=alpha;cx.fillStyle=p.c;
+    if(p.shape==='star'){
+      cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
+      cx.fillRect(-p.z/2,-p.z*.15,p.z,p.z*.3);
+      cx.fillRect(-p.z*.15,-p.z/2,p.z*.3,p.z);
+      cx.restore();
+    }else if(p.shape==='circle'){
+      cx.beginPath();cx.arc(p.x,p.y,p.z/2,0,6.28);cx.fill();
+    }else{cx.fillRect(p.x,p.y,p.z,p.z)}
+    cx.globalAlpha=1;
+  }
+  return true;
+})}
+
+// ── NARRATION ──
+let nFull='',nIdx=0,nTxt='',nTm=null;
+function narr(t,at){
+  document.getElementById('nf').textContent=at?(C[at]?.l||'SYS'):'SYS';
+  nFull=t;nIdx=0;nTxt='';clearInterval(nTm);
+  nTm=setInterval(()=>{if(nIdx<nFull.length){nTxt+=nFull[nIdx++];document.getElementById('nt').textContent=nTxt}else clearInterval(nTm)},35);
+}
+const NR={
+  Bash:['Shell: 터미널 명령 실행 중...','Shell: 시스템 호출 처리 중','Shell: 프로세스 실행 대기','Shell: 명령 결과 수집 중','Shell: 파이프라인 구성 중'],
+  Read:['Reader: 소스코드 분석 시작','Reader: 파일 내용 스캔 중','Reader: 구조 파악 중...','Reader: 의존성 추적 중','Reader: 모듈 분석 완료'],
+  Write:['Editor: 새 파일 생성 중','Editor: 코드 작성 시작','Editor: 보일러플레이트 생성','Editor: 파일 구조 설계 중'],
+  Edit:['Editor: 코드 패치 적용 중','Editor: 리팩토링 수행','Editor: 심볼 교체 중','Editor: diff 계산 중','Editor: 인라인 수정 반영'],
+  Grep:['Search: 정규식 패턴 매칭 중','Search: 코드베이스 스캔 중','Search: 일치 결과 수집 중','Search: 심층 검색 진행 중'],
+  Glob:['Search: 파일 시스템 탐색 중','Search: 패턴 매칭 파일 검색','Search: 디렉토리 트리 순회 중'],
+  WebSearch:['Web: 검색 엔진 쿼리 실행','Web: 최신 정보 수집 중','Web: 검색 결과 분석 중','Web: 글로벌 지식 탐색 중'],
+  WebFetch:['Web: 웹 페이지 다운로드 중','Web: HTML 파싱 처리 중','Web: 콘텐츠 추출 중','Web: API 응답 처리 중'],
+  Task:['Agent: 서브에이전트 디스패치!','Agent: 병렬 작업 분배 중','Agent: 에이전트 태스크 할당','Agent: 오케스트레이션 실행 중'],
+  TaskCreate:['Agent: 새 태스크 생성!','Agent: 작업 계획 수립 중'],
+  TaskUpdate:['Agent: 태스크 상태 업데이트','Agent: 진행 상황 기록 중'],
+  ToolSearch:['MCP: 도구 검색 실행 중','MCP: 확장 도구 탐색 중'],
+  Skill:['Skill: 스킬 실행 중!','Skill: 자동화 워크플로우 시작'],
+  EnterPlanMode:['Plan: 설계 모드 진입!','Plan: 아키텍처 분석 시작'],
+  ExitPlanMode:['Plan: 설계 완료, 실행 준비!'],
+  deny:['⚠ 차단: 위험 명령 감지됨!','⚠ 차단: 정책 위반 감지','⚠ 차단: 접근 거부됨'],
+  idle:['시스템 모니터링 대기 중...','모든 에이전트 대기 상태','다음 작업 대기 중...','시스템 정상 운영 중']};
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+
+// ── WEATHER & DAY/NIGHT SYSTEM (PixiJS native) ──
+let weatherParticles=[];
+function getWeather(){
+  if(entries.length<5)return'sunny';
+  const recent=entries.slice(-20);
+  const errRate=recent.filter(e=>e.err||e.decision==='deny').length/recent.length;
+  const intensity=getActivityIntensity();
+  if(errRate>.3)return'rain';
+  if(errRate>.15)return'cloudy';
+  if(intensity>.6)return'active';
+  return'sunny';
+}
+function getDayPhase(){
+  const h=new Date().getHours();
+  if(h>=6&&h<10)return'morning';if(h>=10&&h<17)return'day';
+  if(h>=17&&h<20)return'evening';return'night';
+}
+let thunderFlash=0, dayOverlay=null;
+
+function initWeatherOverlay(){
+  if(!pixiReady)return;
+  dayOverlay=new PIXI.Graphics();
+  L.weather.addChild(dayOverlay);
+}
+
+function drawWeather(w,h){
+  const weather=getWeather(),phase=getDayPhase();
+  // Day/night tint (PixiJS graphics or Canvas 2D fallback)
+  if(pixiReady&&dayOverlay){
+    dayOverlay.clear();
+    if(phase==='evening'){dayOverlay.rect(0,0,w,h).fill({color:0xFF8800,alpha:0.03})}
+    else if(phase==='night'){dayOverlay.rect(0,0,w,h).fill({color:0x000022,alpha:0.04})}
+    else if(phase==='morning'){dayOverlay.rect(0,0,w,h).fill({color:0xFFE8B0,alpha:0.02})}
+  }else{
+    if(phase==='evening'){cx.fillStyle='#FF880008';cx.fillRect(0,0,w,h)}
+    else if(phase==='night'){cx.fillStyle='#0000220A';cx.fillRect(0,0,w,h)}
+    else if(phase==='morning'){cx.fillStyle='#FFE8B005';cx.fillRect(0,0,w,h)}
+  }
+  // Spawn weather particles
+  if(weather==='rain'){
+    for(let i=0;i<3;i++)
+      weatherParticles.push({x:Math.random()*w,y:-5,vx:-.5,vy:4+Math.random()*3,l:h/4+Math.random()*20,type:'rain',sprite:null});
+    if(Math.random()<.008&&thunderFlash<=0){thunderFlash=6;triggerShake(2)}
+  }else if(weather==='cloudy'){
+    if(Math.random()<.005)
+      weatherParticles.push({x:-40,y:10+Math.random()*h*.15,vx:.3+Math.random()*.2,vy:0,l:300,type:'cloud',sz:30+Math.random()*30,sprite:null});
+  }else if(weather==='active'){
+    if(Math.random()<.06)
+      weatherParticles.push({x:Math.random()*w,y:Math.random()*h*.3,vx:0,vy:0,l:40+Math.random()*30,type:'sparkle',r:Math.random()*6.28,sprite:null});
+    if(Math.random()<.02){
+      const dx=DESKS[Math.floor(Math.random()*DESKS.length)].x*w;
+      weatherParticles.push({x:dx,y:h*.55,vx:0,vy:-1.5,l:30,type:'energy',sz:0,sprite:null});
+    }
+  }else if(weather==='sunny'&&Math.random()<.02){
+    weatherParticles.push({x:Math.random()*w,y:Math.random()*h*.3,vx:0,vy:0,l:40+Math.random()*30,type:'sparkle',r:Math.random()*6.28,sprite:null});
+  }
+  // Thunder flash
+  if(thunderFlash>0){
+    if(pixiReady&&L.effects){
+      // Flash via effects layer
+      if(!L.effects._flash){
+        L.effects._flash=new PIXI.Graphics();L.effects.addChild(L.effects._flash);
+      }
+      L.effects._flash.clear().rect(0,0,w,h).fill({color:0xFFFFFF,alpha:thunderFlash/10});
+    }else{
+      cx.fillStyle=`rgba(255,255,255,${thunderFlash/10})`;cx.fillRect(0,0,w,h);
+    }
+    thunderFlash--;
+  }else if(pixiReady&&L.effects&&L.effects._flash){
+    L.effects._flash.clear();
+  }
+  // Update weather particles
+  weatherParticles=weatherParticles.filter(p=>{
+    p.x+=(p.vx||0);p.y+=(p.vy||0);p.l--;
+    if(p.l<=0||p.y>h||p.x>w+60){
+      if(p.sprite){p.sprite.destroy();p.sprite=null}
+      return false;
+    }
+    const alpha=Math.min(p.l/20,1);
+    if(pixiReady&&L.weather){
+      // PixiJS native weather rendering
+      if(!p.sprite){
+        const g=new PIXI.Graphics();
+        L.weather.addChild(g);
+        p.sprite=g;
+      }
+      const g=p.sprite;g.clear();
+      if(p.type==='rain'){
+        g.rect(p.x,p.y,1,6).fill({color:0x6688CC,alpha:0.25});
+      }else if(p.type==='sparkle'){
+        p.r+=.05;
+        g.rect(p.x+Math.cos(p.r)*2-1,p.y-1,2,2).fill({color:0xFFE8B0,alpha:alpha*.4});
+        g.rect(p.x-1,p.y+Math.sin(p.r)*2-1,2,2).fill({color:0xFFE8B0,alpha:alpha*.4});
+      }else if(p.type==='energy'){
+        p.sz+=.8;
+        g.circle(p.x,p.y,p.sz).stroke({color:0xFFD080,alpha:alpha*.2,width:1.5});
+      }else if(p.type==='cloud'){
+        const sz=p.sz;
+        g.circle(p.x,p.y,sz*.4).circle(p.x+sz*.3,p.y-sz*.15,sz*.35).circle(p.x+sz*.6,p.y,sz*.3).fill({color:0x8899AA,alpha:0.12});
+      }
+    }else{
+      // Canvas 2D fallback
+      if(p.type==='rain'){cx.globalAlpha=.25;cx.fillStyle='#6688CC';cx.fillRect(p.x,p.y,1,6);cx.globalAlpha=1}
+      else if(p.type==='sparkle'){p.r+=.05;cx.globalAlpha=alpha*.4;cx.fillStyle='#FFE8B0';cx.fillRect(p.x+Math.cos(p.r)*2-1,p.y-1,2,2);cx.fillRect(p.x-1,p.y+Math.sin(p.r)*2-1,2,2);cx.globalAlpha=1}
+      else if(p.type==='energy'){p.sz+=.8;cx.globalAlpha=alpha*.2;cx.strokeStyle='#FFD08088';cx.lineWidth=1.5;cx.beginPath();cx.arc(p.x,p.y,p.sz,0,6.28);cx.stroke();cx.globalAlpha=1}
+      else if(p.type==='cloud'){cx.globalAlpha=.12;cx.fillStyle='#8899AA';const sz=p.sz;cx.beginPath();cx.arc(p.x,p.y,sz*.4,0,6.28);cx.arc(p.x+sz*.3,p.y-sz*.15,sz*.35,0,6.28);cx.arc(p.x+sz*.6,p.y,sz*.3,0,6.28);cx.fill();cx.globalAlpha=1}
+    }
+    return true;
+  });
+}
+
+// ── Screen shake on deny ──
+let shakeFrames=0, shakeIntensity=0;
+function triggerShake(intensity){shakeFrames=12;shakeIntensity=intensity||3}
+
+// ── RENDER (30fps - PixiJS ticker or requestAnimationFrame fallback) ──
+let lastRender=0,hudPrev=0,hudWait=30,hudShow=0;
+
+function startRenderLoop(){
+  if(pixiReady){
+    initWeatherOverlay();
+    pixiApp.ticker.add(()=>gameLoop());
+  }else{
+    requestAnimationFrame(render);
+  }
+}
+
+// PixiJS render path
+function gameLoop(){
+  const w=cW(),h=cH();
+  if(w<10||h<10)return;
+
+  // Background (offscreen canvas → PixiJS texture, cached)
+  if(!bg||bgW!==w||bgH!==h){
+    // Use larger offscreen buffer for background
+    const bgBuf=document.createElement('canvas');
+    bgBuf.width=w;bgBuf.height=h;
+    const prevBuf=buf,prevCx=cx;
+    buf=bgBuf;cx=bgBuf.getContext('2d');
+    buildBg(w,h);
+    buf=prevBuf;cx=prevCx;
+    if(bgSprite._tex)bgSprite._tex.destroy(true);
+    bgSprite._tex=PIXI.Texture.from(bg);
+    bgSprite.texture=bgSprite._tex;
+    bgSprite.width=w;bgSprite.height=h;
+  }
+
+  // Screen shake via stage transform
+  if(shakeFrames>0){
+    pixiApp.stage.x=(Math.random()-.5)*shakeIntensity;
+    pixiApp.stage.y=(Math.random()-.5)*shakeIntensity;
+    shakeFrames--;
+  }else{pixiApp.stage.x=0;pixiApp.stage.y=0}
+
+  drawWeather(w,h);
+
+  // Desk active screens (offscreen canvas → texture)
+  const fy=h*.55;
+  DESKS.forEach((d,i)=>{
+    if(d.act&&deskSprites[i]){
+      const dc=deskCanvases[i];
+      const s=P,sx2=6.4*s,sy2=5.8*s;
+      dc.width=Math.ceil(sx2);dc.height=Math.ceil(sy2);
+      const prevBuf=buf,prevCx=cx;
+      buf=dc;cx=dc.getContext('2d');
+      // Translate so drawActiveScreen draws at 0,0
+      const origFn=drawActiveScreen;
+      // Draw screen content directly
+      const dsx=d.x*w,sxOff=-dsx+3.2*s,syOff=-(fy+2)+7.5*s;
+      cx.save();cx.translate(sxOff,syOff);
+      drawActiveScreen(dsx,fy,AT[i]);
+      cx.restore();
+      buf=prevBuf;cx=prevCx;
+      if(deskSprites[i]._tex)deskSprites[i]._tex.destroy(true);
+      deskSprites[i]._tex=PIXI.Texture.from(dc);
+      deskSprites[i].texture=deskSprites[i]._tex;
+      deskSprites[i].x=d.x*w-3.2*s;deskSprites[i].y=fy+2-7.5*s;
+      deskSprites[i].visible=true;
+    }else if(deskSprites[i]){
+      deskSprites[i].visible=false;
+    }
+  });
+
+  // Update agents
+  agents.forEach(a=>a.up());
+  agents.sort((a,b)=>a.y-b.y);
+
+  // Draw each agent to its offscreen canvas → PixiJS sprite
+  agents.forEach((a,idx)=>{
+    const ac=agentCanvases[a.i];
+    if(!ac)return;
+    const aw=80,ah=120;
+    ac.width=aw;ac.height=ah;
+    const prevBuf=buf,prevCx=cx,prevDpr=dpr;
+    buf=ac;cx=ac.getContext('2d');dpr=1;
+    cx.clearRect(0,0,aw,ah);
+    // Draw character centered in the small canvas
+    drawCh(aw/2,ah*.65,a.t,a.wf,a.d,a.st==='work',a.st==='work'?a.tk:'',a);
+    buf=prevBuf;cx=prevCx;dpr=prevDpr;
+    // Update PixiJS sprite
+    const sp=agentSprites[a.i];
+    if(sp){
+      if(sp._tex)sp._tex.destroy(true);
+      sp._tex=PIXI.Texture.from(ac);
+      sp.texture=sp._tex;
+      sp.x=a.x*w;sp.y=a.y*h;
+      // Y-sort: update zIndex
+      sp.zIndex=Math.floor(a.y*1000);
+    }
+  });
+  L.agents.sortableChildren=true;
+
+  // Particles (updated in drawPts via PixiJS sprites)
+  drawPts();
+  // Floating texts (PixiJS Text sprites)
+  updateFloatingTexts();
+
+  // HUD (offscreen canvas → texture)
+  drawHUD(w,h);
+
+  fr++;
+}
+
+function drawHUD(w,h){
+  let hx;
+  if(pixiReady){
+    if(!hudCanvas||!hudCx)return;
+    hudCanvas.width=Math.min(250,w);hudCanvas.height=80;
+    hudCx.clearRect(0,0,hudCanvas.width,hudCanvas.height);
+    hx=hudCx; // draw to HUD offscreen canvas → PixiJS texture
+  }else{
+    hx=cx; // draw directly to main buffer (Canvas 2D fallback)
+  }
+  // HUD overlay (shared between PixiJS and Canvas 2D)
+  let ac=0;agents.forEach(a=>{if(a.st==='work')ac++});
+  if(ac!==hudPrev){hudWait=0;hudPrev=ac}else if(hudWait<31)hudWait++;
+  if(hudWait>=30)hudShow=hudPrev;
+  const hudW2=serverMetrics&&serverMetrics.opsPerMin?220:140;
+  const hasOrch=orchRun&&orchRun.state&&orchRun.state!=='done'&&orchRun.state!=='failed';
+  const hasCombo=activeComboNames.length>0;
+  const hudH2=56+(hasOrch?8:0)+(hasCombo?10:0);
+  hx.fillStyle='#000000AA';hx.fillRect(4,4,hudW2,hudH2);
+  hx.fillStyle='#1A1A3A';hx.fillRect(5,5,hudW2-2,hudH2-2);
+  hx.fillStyle='#8B6914';hx.fillRect(5,5,hudW2-2,2);hx.fillRect(5,3+hudH2,hudW2-2,2);
+  // Game calendar (top-right of HUD)
+  const cal=getGameCalendar();
+  hx.font='bold 8px monospace';hx.textAlign='right';
+  hx.fillStyle=cal.seasonColor;hx.fillText(cal.label,hudW2-4,14);
+  // Agent status line
+  hx.textAlign='left';
+  hx.font='bold 13px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+  if(hudShow>0){
+    hx.fillStyle='#FF6644';hx.fillRect(8,18,12,12);
+    hx.fillStyle='#FFD080';hx.fillText(hudShow+'명 개발 중',24,29);
+  }else{
+    hx.fillStyle='#88AACC';hx.fillText('대기 중',8,29);
+  }
+  if(serverMetrics&&serverMetrics.opsPerMin){
+    hx.fillStyle='#6688AA';hx.fillRect(134,18,1,14);
+    hx.fillStyle='#88BBDD';hx.font='bold 11px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
+    hx.fillText(serverMetrics.opsPerMin+' ops/m',140,29);
+  }
+  // Agent online indicator
+  hx.fillStyle=agentOnline?'#44CC44':'#CC0000';
+  hx.fillRect(8,8,6,6);hx.fillStyle='#FFF';
+  hx.font='7px monospace';hx.textAlign='left';
+  hx.fillText(agentOnline?'ON':'OFF',16,13);
+  // Level & XP bar
+  const lvl=Math.floor(totalXP/500)+1;
+  const xpInLvl=totalXP%500;
+  const xpW=70,xpH=5,xpX=5,xpY=31;
+  hx.fillStyle='#222';hx.fillRect(xpX,xpY,xpW,xpH);
+  const xpPct=Math.min(xpInLvl/500,1);
+  const xpG=hx.createLinearGradient(xpX,0,xpX+xpW*xpPct,0);
+  xpG.addColorStop(0,'#4466CC');xpG.addColorStop(1,'#88AAFF');
+  hx.fillStyle=xpG;hx.fillRect(xpX,xpY,xpW*xpPct,xpH);
+  hx.fillStyle='#FFFFFF40';hx.fillRect(xpX,xpY,xpW*xpPct,1);
+  hx.fillStyle='#CCC';hx.font='bold 8px -apple-system,sans-serif';hx.textAlign='left';
+  hx.fillText('Lv.'+lvl,xpX+xpW+4,xpY+5);
+  hx.fillStyle='#888';hx.font='7px monospace';
+  hx.fillText(xpInLvl+'/500',xpX+xpW+28,xpY+5);
+  // Activity intensity meter
+  const intensity=getActivityIntensity();
+  const aiY=xpY+9, aiW=xpW, aiH=3;
+  hx.fillStyle='#222';hx.fillRect(xpX,aiY,aiW,aiH);
+  const aiG=hx.createLinearGradient(xpX,0,xpX+aiW*intensity,0);
+  if(intensity>.7){aiG.addColorStop(0,'#FF4444');aiG.addColorStop(1,'#FF8844')}
+  else if(intensity>.3){aiG.addColorStop(0,'#FFAA22');aiG.addColorStop(1,'#FFDD44')}
+  else{aiG.addColorStop(0,'#44AA44');aiG.addColorStop(1,'#66CC66')}
+  hx.fillStyle=aiG;hx.fillRect(xpX,aiY,aiW*intensity,aiH);
+  hx.fillStyle='#888';hx.font='7px monospace';
+  hx.fillText(activityHistory.length+'ops',xpX+aiW+4,aiY+3);
+  // Mini sparkline
+  const slY=aiY+6, slH=12, slW=aiW;
+  hx.fillStyle='#1A1A2A88';hx.fillRect(xpX,slY,slW,slH);
+  const now2=Date.now(), bins=15, binW2=slW/bins;
+  const binCounts=new Array(bins).fill(0);
+  for(const t of activityHistory){const ago=(now2-t)/1000;if(ago<30){const bi=Math.min(Math.floor(ago/2),bins-1);binCounts[bins-1-bi]++}}
+  const maxBin=Math.max(...binCounts,1);
+  for(let i=0;i<bins;i++){
+    const bh=(binCounts[i]/maxBin)*slH;
+    hx.fillStyle=binCounts[i]>3?'#FF884488':binCounts[i]>1?'#44AA4488':'#FFFFFF22';
+    hx.fillRect(xpX+i*binW2,slY+slH-bh,binW2-1,bh);
+  }
+  // Orchestration progress
+  if(orchRun&&orchRun.state&&orchRun.state!=='done'&&orchRun.state!=='failed'){
+    const oY=slY+slH+3,oTotal=orchRun.total||1,oDone=orchRun.done||0,oW2=xpW,oH2=4;
+    hx.fillStyle='#222';hx.fillRect(xpX,oY,oW2,oH2);
+    const oPct=Math.min(oDone/oTotal,1);
+    const oG=hx.createLinearGradient(xpX,0,xpX+oW2*oPct,0);
+    oG.addColorStop(0,'#CC6600');oG.addColorStop(1,'#FFAA44');
+    hx.fillStyle=oG;hx.fillRect(xpX,oY,oW2*oPct,oH2);
+    hx.fillStyle='#FFD080';hx.font='bold 7px monospace';
+    hx.fillText('DAG '+oDone+'/'+oTotal,xpX+oW2+4,oY+4);
+  }
+  // Facility combos indicator
+  if(activeComboNames.length>0){
+    const fcY=slY+slH+(hasOrch?10:3);
+    hx.fillStyle='#FFAA2288';hx.font='bold 7px -apple-system,sans-serif';hx.textAlign='left';
+    hx.fillText('COMBO: '+activeComboNames.join(' + '),xpX,fcY+7);
+  }
+  // Combo (drawn to effects layer in PixiJS, or inline in Canvas 2D)
+  if(combo>=2){
+    const comboSize=combo>=10?20:combo>=5?18:16;
+    hx.font=`bold ${comboSize}px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif`;hx.textAlign='center';
+    const comboY=38+Math.sin(fr*.15)*3;
+    const comboColor=combo>=10?'#FF4444':combo>=5?'#FFAA22':'#FFD080';
+    if(!pixiReady){
+      hx.fillStyle='#00000080';hx.fillText(combo+'COMBO!',w/2+1,comboY+1);
+      hx.fillStyle=comboColor;hx.fillText(combo+'COMBO!',w/2,comboY);
+    }
+    if(combo>=10&&fr%3===0)spawnP(w/2+(Math.random()-.5)*60,comboY,1,'success');
+  }
+
+  // PixiJS: update HUD sprite from canvas
+  if(pixiReady&&hudSprite){
+    if(hudSprite._tex)hudSprite._tex.destroy(true);
+    hudSprite._tex=PIXI.Texture.from(hudCanvas);
+    hudSprite.texture=hudSprite._tex;
+    hudSprite.x=0;hudSprite.y=0;
+    // Combo text as PIXI.Text (if active)
+    if(combo>=2){
+      if(!L.hud._comboText){
+        L.hud._comboText=new PIXI.Text({text:'',style:{fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',fontWeight:'bold',fontSize:16,fill:'#FFD080',dropShadow:true,dropShadowColor:'#000000',dropShadowDistance:1}});
+        L.hud._comboText.anchor.set(0.5);
+        L.hud.addChild(L.hud._comboText);
+      }
+      L.hud._comboText.text=combo+'COMBO!';
+      L.hud._comboText.style.fontSize=combo>=10?20:combo>=5?18:16;
+      L.hud._comboText.style.fill=combo>=10?'#FF4444':combo>=5?'#FFAA22':'#FFD080';
+      L.hud._comboText.x=w/2;L.hud._comboText.y=38+Math.sin(fr*.15)*3;
+      L.hud._comboText.visible=true;
+    }else if(L.hud._comboText){L.hud._comboText.visible=false}
+  }
+}
+
+// Canvas 2D fallback render (when PixiJS unavailable)
+function render(ts){
+  requestAnimationFrame(render);
+  if(ts-lastRender<33)return;
+  lastRender=ts;
+  const w=cW(),h=cH();
+  if(w<10||h<10)return;
+  if(!bg||bgW!==w||bgH!==h)buildBg(w,h);
+  let sx=0,sy=0;
+  if(shakeFrames>0){sx=(Math.random()-.5)*shakeIntensity;sy=(Math.random()-.5)*shakeIntensity;shakeFrames--}
+  cx.save();cx.translate(sx,sy);
+  cx.drawImage(bg,0,0,bg.width,bg.height,0,0,w,h);
+  drawWeather(w,h);
+  const fy=h*.55;
+  DESKS.forEach((d,i)=>{if(d.act)drawActiveScreen(d.x*w,fy,AT[i])});
+  agents.forEach(a=>a.up());
+  agents.sort((a,b)=>a.y-b.y);
+  agents.forEach(a=>a.draw(w,h));
+  drawPts();
+  updateFloatingTexts();
+  drawHUD(w,h);
+  cx.restore();
+  fr++;
+  if(window._mainCx)window._mainCx.drawImage(buf,0,0);
+}
+
+// ══════════════════════════════════════════════════════
+// ── SUPABASE REALTIME CONNECTION (replaces SSE) ──
+// ══════════════════════════════════════════════════════
+
+function getParams(){
+  const p=new URLSearchParams(location.search);
+  const DEF_URL='https://cdiptfmagemjfmsuphaj.supabase.co';
+  const DEF_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkaXB0Zm1hZ2VtamZtc3VwaGFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NjQyMTIsImV4cCI6MjA4NDE0MDIxMn0.mOulQy84XNc7dBQWbC4GlAKkx-9cWOcSgzYWi_tLuHU';
+  return {
+    url: p.get('url') || localStorage.getItem('sb_url') || DEF_URL,
+    key: p.get('key') || localStorage.getItem('sb_key') || DEF_KEY,
+    session: p.get('session') || localStorage.getItem('sb_session') || '',
+  };
+}
+
+function doConnect(){
+  const url=document.getElementById('cfgUrl').value.trim();
+  const key=document.getElementById('cfgKey').value.trim();
+  const session=document.getElementById('cfgSession').value.trim();
+  if(!url||!key||!session)return alert('모든 항목을 입력해주세요');
+  localStorage.setItem('sb_url',url);
+  localStorage.setItem('sb_key',key);
+  localStorage.setItem('sb_session',session);
+  connectWith(url,key,session);
+}
+
+let reconnectAttempts=0, reconnectTimer=null, agentOnline=false, connParams=null, orchRun=null;
+
+function connectWith(url,key,sessionId){
+  connParams={url,key,sessionId};
+  document.getElementById('setupOverlay').style.display='none';
+  document.getElementById('mainApp').style.display='';
+  // Wait for browser layout reflow before measuring canvas
+  requestAnimationFrame(async()=>{
+    await initCanvas();
+    startRenderLoop();
+  });
+
+  const sbLib=window.supabase;
+  if(!sbLib||!sbLib.createClient){
+    document.getElementById('cs').innerHTML='SDK 오류';
+    narr('Supabase SDK 로드 실패!');return;
+  }
+
+  sbClient=sbLib.createClient(url,key,{realtime:{params:{eventsPerSecond:10}}});
+  const channelName='claude:'+sessionId;
+  channel=sbClient.channel(channelName,{config:{broadcast:{ack:true,self:false}}});
+
+  // ── Audit Events ──
+  channel.on('broadcast',{event:'audit'},({payload})=>{
+    entries.push(payload);lastET=Date.now();onE(payload);sUI();
+    if(!panelOpen||currentPanel!=='log'){newLogCount++;updateBadge('logBadge',newLogCount)}
+    // Track sparkline data
+    addSpark('ops',1);
+    if(payload.err||payload.decision==='deny')addSpark('errs',1);else addSpark('errs',0);
+  });
+
+  // ── Status ──
+  channel.on('broadcast',{event:'status'},({payload})=>{
+    if(payload.system){if(!serverMetrics)serverMetrics={};
+      Object.assign(serverMetrics,payload.system);}
+    sUI();
+  });
+
+  // ── Metrics ──
+  channel.on('broadcast',{event:'metrics'},({payload})=>{
+    serverMetrics=payload;sUI();
+  });
+
+  // ── Tick Liveness (OpenClaw pattern) ──
+  channel.on('broadcast',{event:'tick'},({payload})=>{
+    lastTick=Date.now();relayUptime=payload.uptime||0;
+    const sig=document.getElementById('sig');
+    if(sig)sig.className='signal'; // full bars on tick
+  });
+
+  // ── Lane Stats ──
+  channel.on('broadcast',{event:'lane-stats'},({payload})=>{
+    if(payload&&!payload.error){
+      lastLaneStats=payload;lastLaneStatsTime=Date.now();
+      const el=document.getElementById('laneInfo');
+      if(el){
+        const locked=payload.locked?'🔒':'';
+        const failed=payload.failed?` 실패:${payload.failed}`:'';
+        el.innerHTML=`${locked}큐:<b>${payload.pending||0}</b> 실행:<b>${payload.running||0}</b> 완료:<b>${payload.completed||0}</b>${failed}`;
+        el.style.borderLeft=payload.running>0?'3px solid var(--accent)':'3px solid transparent';
+      }
+    }
+  });
+
+  // ── Lane Executing (command about to run) ──
+  channel.on('broadcast',{event:'lane-executing'},({payload})=>{
+    const cmd=cmdHistory.find(c=>c.id===payload.id);
+    if(cmd){cmd.status='executing';renderCmdHist()}
+    toast('실행 중: '+((payload.command||'').slice(0,30)),'in');
+    narr('명령 실행 시작: '+(payload.command||''),'bash');
+    spawnP(cW()/2,cH()/2,6,'success');
+  });
+
+  // ── Command Ack/Result ──
+  channel.on('broadcast',{event:'command-ack'},({payload})=>{
+    updateCmdStatus(payload.id,payload.status,payload.reason);
+    toast(payload.status==='queued'?'명령 큐 추가됨':'명령 거부: '+(payload.reason||''),payload.status==='queued'?'ok':'er');
+  });
+  channel.on('broadcast',{event:'command-result'},({payload})=>{
+    updateCmdResult(payload.id,payload.result,payload.exitCode);
+    toast(payload.exitCode===0?'명령 완료':'명령 실패 (code '+payload.exitCode+')',payload.exitCode===0?'ok':'er');
+    if(payload.exitCode===0){addCombo(true);spawnP(cW()/2,cH()*.3,8,'success')}
+    else{addCombo(false);triggerShake(4)}
+  });
+
+  // ── Orchestration Events ──
+  channel.on('broadcast',{event:'orch-state'},({payload})=>{
+    orchRun=orchRun||{};
+    orchRun.state=payload.to;orchRun.runId=payload.runId;
+    toast('오케스트레이션: '+payload.to,'in');
+    narr('오케스트레이션 상태: '+payload.from+' → '+payload.to,'sys');
+    updateOrchUI();
+  });
+  channel.on('broadcast',{event:'orch-dag'},({payload})=>{
+    orchRun=orchRun||{};
+    orchRun.dag=payload.dag;orchRun.total=payload.steps;orchRun.done=0;
+    toast('DAG 생성: '+payload.steps+'개 스텝','ok');
+    narr('태스크 분해 완료: '+payload.steps+'개 스텝','agent');
+    for(let i=0;i<Math.min(payload.steps,12);i++)spawnP(cW()*Math.random(),cH()*Math.random(),3,'success');
+    updateOrchUI();
+  });
+  channel.on('broadcast',{event:'orch-step-start'},({payload})=>{
+    toast('실행: '+payload.name,'in');
+    narr(payload.step+': '+payload.name+' ('+payload.executor+')','bash');
+    updateOrchUI();
+  });
+  channel.on('broadcast',{event:'orch-step-done'},({payload})=>{
+    if(payload.success){addCombo(true);spawnP(cW()/2,cH()*.4,6,'success')}
+    else{addCombo(false);triggerShake(3)}
+    updateOrchUI();
+  });
+  channel.on('broadcast',{event:'orch-progress'},({payload})=>{
+    if(orchRun)orchRun.done=payload.done;
+    updateOrchUI();
+  });
+  channel.on('broadcast',{event:'orch-complete'},({payload})=>{
+    orchRun=payload;
+    const ok=payload.status==='done';
+    toast(ok?'오케스트레이션 완료!':'오케스트레이션 실패',ok?'ok':'er');
+    narr('오케스트레이션 '+payload.status+': '+payload.steps?.completed+'/'+payload.steps?.total,'agent');
+    if(ok){for(let i=0;i<15;i++)spawnP(cW()*Math.random(),cH()*Math.random(),4,'success')}
+    else triggerShake(6);
+    updateOrchUI();
+  });
+
+  function updateOrchUI(){
+    const el=document.getElementById('orchInfo');
+    if(!el)return;
+    if(!orchRun){el.style.display='none';return}
+    el.style.display='block';
+    const s=orchRun;
+    let h='<b>오케스트레이션</b> ';
+    if(s.state)h+='<span style="color:var(--'+(s.state==='done'?'ok':s.state==='failed'?'err':'info')+')">'+s.state+'</span> ';
+    if(s.total)h+=(s.done||0)+'/'+s.total+' ';
+    if(s.dag&&s.dag.length>0){
+      h+='<br>';
+      for(const st of s.dag.slice(0,6)){
+        const icon=st.status==='completed'?'<span style="color:var(--ok)">■</span>':st.status==='running'?'<span class="executing">▶</span>':st.status==='failed'?'<span style="color:var(--err)">✕</span>':'<span style="color:var(--gold-d)">○</span>';
+        h+=icon+' '+((st.name||st.id).slice(0,18))+' ';
+      }
+    }
+    el.innerHTML=h;
+  }
+
+  // ── Presence ──
+  channel.on('presence',{event:'sync'},()=>{
+    const state=channel.presenceState();
+    const al=Object.values(state).flat().filter(p=>p.role==='agent');
+    setAgentOnline(al.length>0);
+  });
+  channel.on('presence',{event:'join'},({newPresences})=>{
+    if(newPresences.find(p=>p.role==='agent')){setAgentOnline(true);
+      narr('에이전트 온라인! 실시간 모니터링 시작.','agent');toast('에이전트 접속','ok')}
+  });
+  channel.on('presence',{event:'leave'},()=>{
+    const state=channel.presenceState();
+    const al=Object.values(state).flat().filter(p=>p.role==='agent');
+    setAgentOnline(al.length>0);
+    if(!al.length)toast('에이전트 오프라인','er');
+  });
+
+  // ── Subscribe with exponential backoff ──
+  channel.subscribe(async(status)=>{
+    const cs=document.getElementById('cs'),lv=document.getElementById('lv'),sig=document.getElementById('sig');
+    if(status==='SUBSCRIBED'){
+      connected=true;reconnectAttempts=0;
+      cs.className='conn on';cs.innerHTML='실시간'+sig.outerHTML;
+      lv.className='live on';sig.className='signal';
+      narr('Supabase 연결! 실시간 모니터링 시작.');
+      await channel.track({role:'mobile',online_at:new Date().toISOString()});
+    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+      connected=false;
+      cs.className='conn off';cs.innerHTML=(status==='TIMED_OUT'?'시간초과':'오류')+' (재연결...)'+sig.outerHTML;
+      lv.className='live off';sig.className='signal weak';
+      scheduleReconnect();
+    }
+  });
+}
+
+function scheduleReconnect(){
+  if(reconnectTimer)return;
+  reconnectAttempts++;
+  const delay=Math.min(1000*Math.pow(2,reconnectAttempts),30000);
+  reconnectTimer=setTimeout(()=>{reconnectTimer=null;
+    if(!connected&&connParams){
+      channel?.unsubscribe();sbClient?.removeChannel(channel);
+      connectWith(connParams.url,connParams.key,connParams.sessionId);
+    }
+  },delay);
+}
+
+function setAgentOnline(online){
+  agentOnline=online;
+  if(online)narr('에이전트 활성 중','agent');
+  else narr('에이전트 대기 중...');
+}
+
+// ── Event Handler (same as SSE onE) ──
+// Activity tracking for intensity meter
+let activityHistory=[], lastActivityPush=0;
+function trackActivity(){
+  const now=Date.now();
+  activityHistory.push(now);
+  activityHistory=activityHistory.filter(t=>now-t<60000); // 1-min window
+}
+function getActivityIntensity(){return Math.min(activityHistory.length/30,1)} // 30 ops/min = max
+
+function onE(e){
+  trackActivity();trackMcp(e);
+  const ai=t2a(e.tool),ag=agents.find(a=>a.i===ai),ds=desc(e);
+  const deskX=DESKS[ag?ag.i:0].x*cW(), deskY=cH()*.55;
+
+  // Kairosoft 4-stat tracking
+  if(ag&&e.tool){
+    const t=e.tool;
+    if('Write Edit NotebookEdit'.includes(t))ag.stats.code=Math.min(99,ag.stats.code+1);
+    else if('Read Grep Glob'.includes(t))ag.stats.research=Math.min(99,ag.stats.research+1);
+    else if(t.startsWith('mcp__')||t==='WebSearch'||t==='WebFetch'||t==='ToolSearch')ag.stats.network=Math.min(99,ag.stats.network+1);
+    else if(t==='Bash'||t==='Task'||t==='Skill')ag.stats.code=Math.min(99,ag.stats.code+1);
+    // Speed updated in go()
+  }
+
+  if(ag&&ag.st!=='work'){ag.go(ds);spawnP(deskX,deskY,4,'success',e.tool)}
+  else if(ag&&ag.st==='work'){ag.tk=ds;ag.wt=Math.max(ag.wt,40)}
+
+  if(e.decision==='deny'){
+    narr(pick(NR.deny),'agent');
+    spawnP(cW()/2,cH()*.3,8,'error');
+    triggerShake(4);addCombo(false);
+    toast('차단: '+(e.cmd||e.tool||'').slice(0,30),'er');
+  }else if(e.err){
+    spawnP(deskX,cH()*.5,5,'error');
+    const p=NR[e.tool]||NR.idle;narr(pick(p),AT[ai]);addCombo(false);
+  }else{
+    const p=NR[e.tool]||NR.idle;narr(pick(p),AT[ai]);addCombo(true);
+    // Tool-specific particles at agent desk
+    const pCount=3+(combo>5?3:0)+(combo>10?4:0);
+    spawnP(deskX,cH()*.5,pCount,'success',e.tool);
+    // Trail particle from desk to HUD (data flow visualization)
+    if(Math.random()<.3){
+      pts.push({x:deskX,y:cH()*.5,vx:(cW()/2-deskX)*.02,vy:-(cH()*.5-20)*.02,
+        l:50,c:TOOL_COLORS[e.tool]?TOOL_COLORS[e.tool][0]:'#FFD080',z:2,shape:'circle',rot:0,rv:0});
+    }
+  }
+}
+
+// ── UI (throttled) ──
+let uiD=false,uiT=null;
+function sUI(){if(!uiD){uiD=true;if(!uiT)uiT=setTimeout(()=>{uiT=null;uiD=false;uUI()},500)}}
+function uUI(){
+  const d=entries,al=d.reduce((a,e)=>a+(e.decision==='allow'?1:0),0),
+    dn=d.reduce((a,e)=>a+(e.decision==='deny'?1:0),0);
+  // Top bar stats with delta
+  document.getElementById('sT').textContent=d.length;
+  const sAel=document.getElementById('sA');sAel.textContent=al;
+  const deltaEl=document.getElementById('sAd');
+  if(d.length>prevTotal){const diff=d.length-prevTotal;deltaEl.textContent='+'+diff;deltaEl.className='delta up';
+    setTimeout(()=>deltaEl.textContent='',2000)}
+  prevTotal=d.length;
+  document.getElementById('sD').textContent=dn;
+  if(serverMetrics)document.getElementById('sO').textContent=serverMetrics.opsPerMin||'-';
+  document.getElementById('lc').textContent=d.length;
+  const mcEl=document.getElementById('mc');
+  if(mcEl&&serverMetrics)mcEl.textContent=`${serverMetrics.opsPerMin||0}/m`;
+  if(panelOpen)renderPanel();
+}
+
+// ── Panel Content Rendering ──
+function renderPanel(){
+  const body=document.getElementById('panelBody');if(!body)return;
+  switch(currentPanel){
+    case 'log':body.innerHTML=rLogHTML();break;
+    case 'metrics':body.innerHTML=rStatHTML();break;
+    case 'agents':body.innerHTML=rAgHTML();break;
+    case 'cmd':body.innerHTML=rCmdHTML();
+      const inp=document.getElementById('cmdInput');if(inp)inp.focus();break;
+    case 'mcp':body.innerHTML=rMcpHTML();break;
+  }
+}
+
+function rLogHTML(){
+  return entries.slice(-40).reverse().map(e=>{
+    const cl=e.decision==='deny'?'er':e.err?'er':e.decision==='allow'?'ok':e.level==='warn'?'wr':'in';
+    const tm=(e.ts||'').slice(11,19), tl=tk(e.tool);
+    const gBadge=e.group?`<span style="color:#8B7860;font-size:8px;margin-right:2px">${e.group}</span>`:'';
+    let dt='';if(e.err)dt='⚠ '+e.err.slice(0,40);
+    else if(e.cmd)dt=e.cmd.slice(0,50);else if(e.path)dt=e.path.split(/[/\\]/).slice(-2).join('/');
+    else if(e.summary)dt=e.summary.slice(0,50);else dt=desc(e);
+    const seqTag=e.seq?`<span style="color:#AAA;font-size:8px;margin-right:2px">#${e.seq}</span>`:'';
+    return`<div class="le ${cl}">${seqTag}<span class="t">${tm}</span><span class="n">${tl}</span>${gBadge}<span class="m">${esc(dt)}</span></div>`
+  }).join('')||'<div style="text-align:center;color:#8B7860;padding:20px">아직 이벤트가 없습니다</div>';
+}
+
+function rStatHTML(){
+  const d=entries,m=serverMetrics;
+  let successRate=100,blockRate=0,opsMin='0',errs=0,blocks=0,total=d.length,sessions=0,durMin=0;
+  const grp={'file-io':0,shell:0,search:0,external:0,agent:0,edit:0};
+  if(m&&m.total>0){
+    successRate=m.successRate||100;blockRate=m.blockRate||0;
+    opsMin=m.opsPerMin||0;errs=m.errorCount||0;blocks=Math.round(m.blockRate*m.total/100)||0;
+    total=m.total;sessions=m.sessions||0;durMin=m.durationMin||0;
+    if(m.groups)Object.entries(m.groups).forEach(([k,v])=>{if(grp[k]!==undefined)grp[k]=v.count||v});
+  }else{
+    d.forEach(e=>{
+      if(!e.tool)return;
+      if('Read Write Edit NotebookEdit'.includes(e.tool))grp['file-io']++;
+      else if(e.tool==='Bash')grp.shell++;
+      else if(e.tool==='Grep'||e.tool==='Glob')grp.search++;
+      else if(e.tool.startsWith('mcp__')||e.tool==='WebSearch'||e.tool==='WebFetch')grp.external++;
+      else if('Task Skill TaskCreate TaskUpdate'.includes(e.tool))grp.agent++;
+      if(e.ok===false)errs++;if(e.decision==='deny')blocks++;
+    });
+    successRate=total>0?((total-errs)/total*100)|0:100;
+    blockRate=total>0?(blocks/total*100)|0:0;
+    opsMin=total>=2?(total/Math.max(1,(new Date(d[d.length-1].ts)-new Date(d[0].ts))/6e4)).toFixed(1):'0';
+  }
+  let h='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:4px 0 8px">시스템 메트릭</div>';
+  h+=`<div class="sb"><span class="n">성공률</span><div class="b"><div class="f" style="width:${successRate}%;background:${successRate>90?'var(--ok)':'var(--err)'}"></div>${drawSparkSvg(sparkData.ops,'#44AA4480',60,12)}</div><span class="v">${Math.round(successRate)}%</span></div>`;
+  h+=`<div class="sb"><span class="n">차단률</span><div class="b"><div class="f" style="width:${Math.min(blockRate*10,100)}%;background:var(--err)"></div>${drawSparkSvg(sparkData.errs,'#CC330080',60,12)}</div><span class="v">${Math.round(blockRate)}%</span></div>`;
+  h+=`<div class="sb"><span class="n">속도</span><div class="b"><div class="f" style="width:${Math.min(opsMin*5,100)}%;background:var(--info)"></div></div><span class="v">${opsMin}/m</span></div>`;
+  h+='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:10px 0 8px">도구 그룹</div>';
+  const gMetrics=[['파일I/O',grp['file-io']+grp.edit,'var(--ok)'],['셸',grp.shell,'#FF6644'],['검색',grp.search,'var(--info)'],['외부',grp.external,'var(--warn)'],['에이전트',grp.agent,'#AA88FF']];
+  const gmx=Math.max(1,...gMetrics.map(m2=>m2[1]));
+  gMetrics.forEach(([n,v,co])=>{
+    h+=`<div class="sb"><span class="n">${n}</span><div class="b"><div class="f" style="width:${(v/gmx*100)|0}%;background:${co}"></div></div><span class="v">${v}</span></div>`;
+  });
+  h+=`<div style="font-size:10px;color:#8B7860;margin-top:8px;padding:6px;background:#FFF8E8;border-radius:6px">총 <b>${total}</b> | 에러 <b>${errs}</b> | 차단 <b>${blocks}</b>${sessions?' | '+sessions+'세션':''}${durMin?' | '+durMin+'분':''}</div>`;
+  // Lane Queue info
+  h+='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:10px 0 6px">Lane Queue</div>';
+  const laneAge=lastLaneStatsTime?Math.floor((Date.now()-lastLaneStatsTime)/1000):999;
+  const laneDefault=lastLaneStats?
+    `큐:<b>${lastLaneStats.pending||0}</b> 실행:<b>${lastLaneStats.running||0}</b> 완료:<b>${lastLaneStats.completed||0}</b>${laneAge>90?' <span style="color:var(--err)">('+laneAge+'초 전)</span>':''}`:
+    (connected?'<span style="color:var(--warn)">대기 중... (30초 내 업데이트)</span>':'<span style="color:var(--err)">릴레이 오프라인</span>');
+  h+=`<div id="laneInfo" style="font-size:11px;color:#8B7860;padding:6px;background:#FFF8E8;border-radius:6px;border-left:3px solid ${lastLaneStats&&lastLaneStats.running>0?'var(--accent)':'transparent'}">${laneDefault}</div>`;
+  // Orchestration
+  h+='<div id="orchInfo" style="font-size:11px;color:#8B7860;padding:6px;margin-top:4px;background:#FFF8E8;border-radius:6px;border-left:3px solid var(--info);display:none"></div>';
+  // Combo & XP
+  // Game calendar & stats
+  const cal=getGameCalendar();
+  h+='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:10px 0 6px">게임 통계</div>';
+  h+=`<div style="padding:6px;background:var(--kairo-panel);border:1px solid var(--kairo-border);border-radius:6px;font-size:11px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-weight:bold;color:${cal.seasonColor}">${cal.label}</span><span style="font-size:9px;color:#888">세션 ${Math.floor((Date.now()-SESSION_START)/60000)}분</span></div>`;
+  h+=`<div style="margin-top:4px">현재 콤보: <b style="color:${combo>=5?'var(--warm-red)':'var(--accent)'}">${combo}</b> | 최대: <b>${maxCombo}</b></div>`;
+  h+=`<div>총 XP: <b style="color:var(--info)">${totalXP}</b> | Lv.<b>${Math.floor(totalXP/500)+1}</b></div>`;
+  if(activeComboNames.length>0){
+    h+=`<div style="margin-top:3px;color:var(--accent-gold);font-weight:bold;font-size:10px">시설 콤보: ${activeComboNames.join(', ')}</div>`;
+  }
+  h+=`<div style="margin-top:4px">업적: ${achievements.length}/${ACHIEVEMENTS.length}</div>`;
+  achievements.forEach(id=>{const a=ACHIEVEMENTS.find(x=>x.id===id);if(a)h+=`<div style="font-size:9px;color:var(--ok);margin-top:2px">✓ ${a.name}</div>`});
+  h+=`</div>`;
+  // Relay uptime
+  if(relayUptime>0){
+    const um=Math.floor(relayUptime/60),us=relayUptime%60;
+    h+=`<div style="font-size:10px;color:#8B7860;margin-top:6px">릴레이 업타임: ${um}분 ${us}초</div>`;
+  }
+  return h;
+}
+
+function rAgHTML(){
+  return agents.map(a=>{
+    const c=C[a.t],
+      txt=a.tk||(a.st==='work'?'처리 중':a.st==='walk'?'이동':'대기'),
+      act=a.st==='work'?' on':'',
+      st=a.st==='work'?'RUN':a.st==='walk'?'MOV':'IDLE',
+      stC=a.st==='work'?'var(--warm-red)':a.st==='walk'?'var(--accent-gold)':'var(--muted-teal)',
+      s=a.stats, mx=Math.max(s.code,s.research,s.network,s.speed,1);
+    return`<div class="ac${act}"><div class="fc" style="background:${a.st==='work'?c.s:'var(--cream)'};color:${a.st==='work'?'#FFF':c.s};font-family:monospace;font-weight:bold">${c.e}<span class="lvbadge">${a.lv}</span></div><div class="i"><div class="nm">${c.l} <span class="rl">${c.r} | ${a.tot}ops</span></div><div class="tk"><span style="color:${stC};font-weight:bold;font-size:9px">[${st}]</span> ${txt}</div><div class="stat-grid">`+
+      `<div class="stat-bar"><span class="sl">CD</span><div class="sb2"><div class="sf" style="width:${Math.min(s.code/mx*100,100)|0}%;background:var(--warm-red)"></div></div><span class="sv">${s.code}</span></div>`+
+      `<div class="stat-bar"><span class="sl">RS</span><div class="sb2"><div class="sf" style="width:${Math.min(s.research/mx*100,100)|0}%;background:var(--info)"></div></div><span class="sv">${s.research}</span></div>`+
+      `<div class="stat-bar"><span class="sl">NW</span><div class="sb2"><div class="sf" style="width:${Math.min(s.network/mx*100,100)|0}%;background:var(--muted-teal)"></div></div><span class="sv">${s.network}</span></div>`+
+      `<div class="stat-bar"><span class="sl">SP</span><div class="sb2"><div class="sf" style="width:${Math.min(s.speed,99)}%;background:var(--accent-gold)"></div></div><span class="sv">${s.speed}</span></div>`+
+      `</div></div></div>`
+  }).join('');
+}
+
+function rCmdHTML(){
+  let h='<div class="cmd-area">';
+  h+='<div class="cmd-row"><input id="cmdInput" placeholder="명령 입력..." onkeydown="if(event.key===\'Enter\')sendCmd()"><button onclick="sendCmd()">전송</button></div>';
+  h+='<div class="quick-cmds">';
+  h+='<button class="qc" onclick="quickCmd(\'/status\')">📋 상태</button>';
+  h+='<button class="qc" onclick="quickCmd(\'/log\')">📝 로그</button>';
+  h+='<button class="qc" onclick="quickCmd(\'/optimize\')">⚡ 최적화</button>';
+  h+='<button class="qc" onclick="quickCmd(\'/continue\')">▶ 이어서</button>';
+  h+='<button class="qc" onclick="requestStatus()">🔄 새로고침</button>';
+  h+='</div>';
+  h+='<div id="cmdHist" class="cmd-hist">';
+  h+=cmdHistory.slice(0,30).map(c=>{
+    const stCls=c.status==='completed'?'queued':c.status==='queued'?'queued':c.status==='executing'?'executing':c.status==='rejected'||c.status==='failed'?'rejected':'pending';
+    const statusIcon=c.status==='executing'?'⚙️ ':c.status==='completed'?'✅ ':c.status==='failed'?'❌ ':c.status==='queued'?'📋 ':'⏳ ';
+    return`<div class="cmd-entry"><span class="ct">${statusIcon}${esc(c.command)}</span><span class="cs ${stCls}">${c.status}${c.reason?' : '+esc(c.reason):''}</span><br><span style="color:#8B7860;font-size:9px">${c.ts.toLocaleTimeString('ko-KR')}</span>${c.result?'<div style="margin-top:3px;padding:4px 6px;background:var(--panel);border:1px solid #D4B896;border-radius:4px;font-size:10px;max-height:80px;overflow:auto;white-space:pre-wrap">'+esc(String(c.result))+'</div>':''}</div>`;
+  }).join('');
+  h+='</div></div>';
+  return h;
+}
+
+// ══════════════════════════════════════════════════════
+// ── MCP / SKILL PANEL ──
+// ══════════════════════════════════════════════════════
+
+const mcpServerData={};  // { serverName: { calls, tools:{}, lastSeen } }
+const skillRouteData={};  // { skillName: count }
+let mcpTotalCalls=0, skillTotalRouted=0;
+
+// Track MCP stats from audit events
+function trackMcp(entry){
+  const tool=entry.tool||entry.tool_name||'';
+  if(tool.startsWith('mcp__')){
+    const parts=tool.split('__');
+    if(parts.length>=3){
+      const server=parts[1], toolName=parts.slice(2).join('__');
+      if(!mcpServerData[server])mcpServerData[server]={calls:0,tools:{},lastSeen:null};
+      mcpServerData[server].calls++;
+      mcpServerData[server].tools[toolName]=(mcpServerData[server].tools[toolName]||0)+1;
+      mcpServerData[server].lastSeen=entry.ts||entry.timestamp;
+      mcpTotalCalls++;
+    }
+  }
+  if(entry.skill_routed){
+    skillRouteData[entry.skill_routed]=(skillRouteData[entry.skill_routed]||0)+1;
+    skillTotalRouted++;
+  }
+}
+
+const MCP_SERVERS=[
+  {id:'serena',label:'Serena',desc:'코드 심볼 탐색/수정',icon:'🔍'},
+  {id:'grep-app',label:'grep.app',desc:'공개 저장소 검색',icon:'🌐'},
+  {id:'context7',label:'Context7',desc:'라이브러리 문서',icon:'📚'},
+  {id:'filesystem',label:'Filesystem',desc:'파일 시스템',icon:'📁'},
+  {id:'memory',label:'Memory',desc:'지식 그래프',icon:'🧠'},
+  {id:'sequential-thinking',label:'Thinking',desc:'복잡 추론',icon:'💭'},
+  {id:'claude_ai_Notion',label:'Notion',desc:'노션 연동',icon:'📝'},
+];
+
+const SKILL_CATEGORIES=[
+  {id:'session',label:'세션',color:'#6B9A8E'},
+  {id:'quality',label:'품질',color:'#D4523C'},
+  {id:'debug',label:'디버그',color:'#CC3300'},
+  {id:'security',label:'보안',color:'#8B6F47'},
+  {id:'workflow',label:'워크플로',color:'#6666CC'},
+  {id:'devops',label:'DevOps',color:'#44AA44'},
+  {id:'project',label:'프로젝트',color:'#CC6600'},
+  {id:'deps',label:'의존성',color:'#CCAA22'},
+  {id:'docs',label:'문서',color:'#4488AA'},
+  {id:'planning',label:'기획',color:'#AA88FF'},
+  {id:'research',label:'리서치',color:'#888888'},
+  {id:'system',label:'시스템',color:'#44CC44'},
+  {id:'report',label:'보고',color:'#BB6688'},
+];
+
+function rMcpHTML(){
+  let h='';
+
+  // MCP Server Status
+  h+='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:4px 0 8px">MCP 서버 상태</div>';
+  const maxCalls=Math.max(1,...MCP_SERVERS.map(s=>(mcpServerData[s.id]||{}).calls||0));
+
+  MCP_SERVERS.forEach(s=>{
+    const data=mcpServerData[s.id]||{calls:0,tools:{},lastSeen:null};
+    const active=data.calls>0;
+    const lastTime=data.lastSeen?new Date(data.lastSeen).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'없음';
+    const barW=maxCalls>0?Math.max(2,(data.calls/maxCalls*100)|0):0;
+    const topTools=Object.entries(data.tools).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([t,c])=>`${t}(${c})`).join(', ');
+
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:3px;background:#FFF8E8;border-radius:6px;border-left:4px solid ${active?'var(--ok)':'#CCC'}">`;
+    h+=`<span style="font-size:16px;width:24px;text-align:center">${s.icon}</span>`;
+    h+=`<div style="flex:1;min-width:0">`;
+    h+=`<div style="font-size:11px;font-weight:bold;color:${active?'var(--text)':'#999'}">${s.label} <span style="font-size:9px;font-weight:normal;color:#8B7860">${s.desc}</span></div>`;
+    h+=`<div style="display:flex;align-items:center;gap:4px;margin-top:2px">`;
+    h+=`<div style="flex:1;height:6px;background:#E8DCC8;border-radius:3px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${active?'var(--ok)':'#CCC'};border-radius:3px;transition:width .3s"></div></div>`;
+    h+=`<span style="font-size:10px;color:var(--accent);font-weight:bold;min-width:24px;text-align:right">${data.calls}</span>`;
+    h+=`</div>`;
+    if(topTools)h+=`<div style="font-size:9px;color:#8B7860;margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${topTools}</div>`;
+    h+=`</div>`;
+    h+=`<span style="font-size:9px;color:#AAA;white-space:nowrap">${lastTime}</span>`;
+    h+=`</div>`;
+  });
+
+  h+=`<div style="font-size:10px;color:#8B7860;padding:4px 8px;text-align:right">총 MCP 호출: <b>${mcpTotalCalls}</b></div>`;
+
+  // Skill Router Stats
+  h+='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:12px 0 8px">스킬 라우팅</div>';
+
+  if(skillTotalRouted>0){
+    const sortedSkills=Object.entries(skillRouteData).sort((a,b)=>b[1]-a[1]);
+    const maxSkill=Math.max(1,...sortedSkills.map(s=>s[1]));
+    sortedSkills.forEach(([name,count])=>{
+      const barW=(count/maxSkill*100)|0;
+      h+=`<div class="sb"><span class="n" style="min-width:80px">/${name}</span><div class="b"><div class="f" style="width:${barW}%;background:var(--info)"></div></div><span class="v">${count}</span></div>`;
+    });
+    h+=`<div style="font-size:10px;color:#8B7860;padding:4px 8px;text-align:right">총 라우팅: <b>${skillTotalRouted}</b></div>`;
+  }else{
+    h+=`<div style="padding:12px;text-align:center;color:#8B7860;font-size:11px">스킬 라우팅 기록 없음</div>`;
+  }
+
+  // Skill Catalog
+  h+='<div style="font-size:12px;color:var(--gold-dd);font-weight:bold;margin:12px 0 8px">스킬 카탈로그 (48)</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px">';
+  SKILL_CATEGORIES.forEach(cat=>{
+    h+=`<span style="display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:bold;background:${cat.color}20;color:${cat.color};border:1px solid ${cat.color}40;cursor:pointer" onclick="quickCmd('/${cat.id==='session'?'status':cat.id==='quality'?'review':cat.id==='debug'?'t-smart-debug':'status'}')">${cat.label}</span>`;
+  });
+  h+='</div>';
+
+  // Quick skill commands
+  h+='<div style="font-size:11px;color:var(--gold-dd);font-weight:bold;margin:10px 0 6px">빠른 스킬 실행</div>';
+  h+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
+  const quickSkills=[
+    {cmd:'/review',label:'리뷰',color:'#D4523C'},
+    {cmd:'/fix-all',label:'전체수정',color:'#CC3300'},
+    {cmd:'/t-smart-debug',label:'디버그',color:'#CC6600'},
+    {cmd:'/t-security-scan',label:'보안스캔',color:'#8B6F47'},
+    {cmd:'/t-deps-audit',label:'의존성감사',color:'#CCAA22'},
+    {cmd:'/deploy',label:'배포',color:'#44AA44'},
+    {cmd:'/orchestrate status',label:'오케스트레이션',color:'#6666CC'},
+  ];
+  quickSkills.forEach(s=>{
+    h+=`<button style="padding:5px 10px;border:2px solid ${s.color};border-radius:8px;background:${s.color}15;color:${s.color};font-size:10px;font-weight:bold;font-family:inherit;cursor:pointer" onclick="quickCmd('${s.cmd}')">${s.label}</button>`;
+  });
+  h+='</div>';
+
+  return h;
+}
+
+// ══════════════════════════════════════════════════════
+// ── COMMAND SENDING (Mobile → Agent) ──
+// ══════════════════════════════════════════════════════
+const cmdHistory=[];
+
+function sendCmd(){
+  const input=document.getElementById('cmdInput');
+  const cmd=input.value.trim();
+  if(!cmd||!channel)return;
+  const id='cmd-'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  channel.send({
+    type:'broadcast',
+    event:'command',
+    payload:{id,command:cmd,priority:'normal'},
+  });
+  cmdHistory.unshift({id,command:cmd,status:'pending',ts:new Date()});
+  renderCmdHist();
+  input.value='';
+}
+
+function quickCmd(cmd){
+  document.getElementById('cmdInput').value=cmd;
+  sendCmd();
+}
+
+function requestStatus(){
+  if(!channel)return;
+  channel.send({type:'broadcast',event:'status-request',payload:{}});
+  narr('상태 요청 전송...');
+}
+
+function updateCmdStatus(id,status,reason){
+  const cmd=cmdHistory.find(c=>c.id===id);
+  if(cmd){cmd.status=status;if(reason)cmd.reason=reason;renderCmdHist()}
+}
+
+function updateCmdResult(id,result,exitCode){
+  const cmd=cmdHistory.find(c=>c.id===id);
+  if(cmd){cmd.result=result;cmd.exitCode=exitCode;cmd.status=exitCode===0?'completed':'failed';renderCmdHist()}
+}
+
+function renderCmdHist(){
+  document.getElementById('cmdCount').textContent=cmdHistory.length;
+  const el=document.getElementById('cmdHist');
+  el.innerHTML=cmdHistory.slice(0,30).map(c=>{
+    const stCls=c.status==='completed'?'queued':c.status==='queued'?'queued':c.status==='executing'?'executing':c.status==='rejected'||c.status==='failed'?'rejected':'pending';
+    const statusIcon=c.status==='executing'?'⚙️ ':c.status==='completed'?'✅ ':c.status==='failed'?'❌ ':c.status==='queued'?'📋 ':'⏳ ';
+    return`<div class="cmd-entry"><span class="ct">${statusIcon}${esc(c.command)}</span><span class="cs ${stCls}">${c.status}${c.reason?' : '+esc(c.reason):''}</span><br><span style="color:#8B7860;font-size:9px">${c.ts.toLocaleTimeString('ko-KR')}</span>${c.result?'<div style="margin-top:2px;padding:2px 4px;background:#FFF0D0;border:1px solid #D4B896;border-radius:2px;font-size:9px;max-height:60px;overflow:auto;white-space:pre-wrap">'+esc(String(c.result))+'</div>':''}</div>`
+  }).join('');
+}
+
+// ── Utils ──
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+
+// ── Idle narration ──
+setInterval(()=>{if(Date.now()-lastET>12000)narr(pick(NR.idle))},8000);
+
+// ── Tick liveness monitor (signal degrades without ticks) ──
+setInterval(()=>{
+  if(!connected)return;
+  const sig=document.getElementById('sig');if(!sig)return;
+  const elapsed=Date.now()-lastTick;
+  if(lastTick===0||elapsed<70000)sig.className='signal'; // full
+  else if(elapsed<130000)sig.className='signal mid';
+  else sig.className='signal weak';
+},10000);
+
+// ── Canvas Touch Support (improved hit detection) ──
+const sceneEl=document.querySelector('.scene');
+(sceneEl||document.getElementById('c')).addEventListener('touchstart',(e)=>{
+  const touch=e.touches[0];
+  const target=pixiApp?pixiApp.canvas:cv;
+  const rect=target.getBoundingClientRect();
+  const sx=cW()/rect.width, sy=cH()/rect.height;
+  const cx2=(touch.clientX-rect.left)*sx, cy2=(touch.clientY-rect.top)*sy;
+  // Hit test - check agents and desks
+  const hitAgent=agents.find(a=>{
+    const ax=a.x*cW(), ay=a.y*cH();
+    return Math.abs(cx2-ax)<30*P/5&&Math.abs(cy2-ay)<40*P/5;
+  });
+  if(hitAgent){
+    const c2=C[hitAgent.t];
+    narr(`${c2.l} Lv.${hitAgent.lv} (${c2.r}) - ${hitAgent.st==='work'?'작업: '+hitAgent.tk:hitAgent.st==='walk'?'이동 중':'대기'} [${hitAgent.tot}ops]`,AT[hitAgent.i]);
+    // Tap feedback: spawn particles
+    spawnP(hitAgent.x*cW(),hitAgent.y*cH()-20,3);
+  }
+},{passive:true});
+
+// ── Bottom sheet swipe-down to close ──
+let sheetStartY=0;
+document.getElementById('panelSheet')?.addEventListener('touchstart',e=>{
+  sheetStartY=e.touches[0].clientY;
+},{passive:true});
+document.getElementById('panelSheet')?.addEventListener('touchmove',e=>{
+  const dy=e.touches[0].clientY-sheetStartY;
+  if(dy>80)closePanel();
+},{passive:true});
+
+// ── Drag & Drop JSONL ──
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer?.files[0];
+  if(f){const r=new FileReader();r.onload=v=>{entries=v.target.result.trim().split('\n').filter(Boolean).map(l=>{try{return JSON.parse(l)}catch{return null}}).filter(Boolean);entries.forEach(e2=>onE(e2));sUI();toast(`로그 로드! ${entries.length}건`,'ok');narr(`로그 로드! ${entries.length}건`)};r.readAsText(f)}});
+
+// ── Visibility change: reconnect when app returns to foreground ──
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&!connected&&connParams){
+    scheduleReconnect();
+  }
+});
+
+// ── Auto-connect on load ──
+window.addEventListener('DOMContentLoaded',()=>{
+  const p=getParams();
+  if(p.url&&p.key&&p.session){
+    connectWith(p.url,p.key,p.session);
+  }else{
+    document.getElementById('setupOverlay').style.display='flex';
+    document.getElementById('cfgUrl').value=p.url;
+    document.getElementById('cfgKey').value=p.key;
+    document.getElementById('cfgSession').value=p.session;
+  }
+});
+</script>
+</body>
+</html>

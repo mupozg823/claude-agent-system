@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>에이전트 개발국 ++</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Galmuri11&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Galmuri11','Malgun Gothic',monospace;background:#E8D8C0;color:#2A1B0A;overflow:hidden;height:100vh;user-select:none;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+.app{display:grid;grid-template-rows:42px 1fr 46px 0px 210px;height:100vh}
+
+.top{background:#1A1A3A;border-bottom:3px solid #8B6914;display:flex;align-items:center;padding:0 12px;gap:12px}
+.top .logo{font-size:15px;font-weight:bold;color:#FFD080;text-shadow:1px 1px 0 #000,0 0 6px #FFD08040;white-space:nowrap;letter-spacing:.5px}
+.top .live{width:9px;height:9px;border-radius:50%;animation:pulse 1.5s infinite;flex-shrink:0}
+.live.on{background:#44CC44;box-shadow:0 0 6px #44CC44}
+.live.off{background:#CC0000;box-shadow:0 0 6px #CC0000}
+@keyframes pulse{50%{opacity:.3}}
+.stats{display:flex;gap:10px;flex:1;justify-content:center}
+.stat{color:#EEE;font-size:12px;display:flex;align-items:center;gap:3px;text-shadow:0 1px 2px #0008}
+.stat b{color:#FFD080;font-size:13px}
+.top .date{font-size:11px;color:#BBCCDD;white-space:nowrap}
+
+.scene{position:relative;overflow:hidden;background:#D4C8A0}
+canvas{display:block;width:100%;height:100%}
+
+.narr{background:#FFF8E8;border-top:3px solid #8B6914;border-bottom:3px solid #8B6914;padding:8px 16px;display:flex;align-items:center;gap:10px;min-height:46px}
+.narr .face{width:46px;height:30px;border-radius:4px;border:2px solid #8B6914;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;font-family:monospace;background:#1A1A3A;color:#44DD66;flex-shrink:0}
+.narr .txt{flex:1;font-size:13px;color:#2A1B0A;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;letter-spacing:.3px}
+.narr .cur{color:#8B6914;animation:blink .8s step-end infinite;font-size:11px}
+@keyframes blink{50%{opacity:0}}
+
+.bottom{background:#E8D8C0;display:grid;grid-template-columns:1.3fr .7fr 1fr;gap:4px;padding:4px}
+.pnl{background:#FFF0D0;border:2px solid #8B6914;border-radius:4px;box-shadow:2px 2px 0 #5A4008;display:flex;flex-direction:column;overflow:hidden}
+.ph{background:linear-gradient(#FFE0A0,#FFC860);padding:4px 8px;font-size:12px;font-weight:bold;color:#5A4008;border-bottom:2px solid #8B6914;display:flex;justify-content:space-between;align-items:center}
+.ph .c{font-weight:normal;color:#8B6914;font-size:10px}
+.pb{flex:1;overflow-y:auto;padding:3px;font-size:11px;scrollbar-width:thin;scrollbar-color:#C8A882 #FFF0D0}
+.pb::-webkit-scrollbar{width:5px}
+.pb::-webkit-scrollbar-thumb{background:#C8A882;border-radius:3px}
+
+.le{padding:3px 5px;margin-bottom:2px;border-radius:3px;border-left:3px solid #C8A882;background:#FFF8E8;line-height:1.4}
+.le.ok{border-color:#44AA44}.le.er{border-color:#CC3300}.le.wr{border-color:#CCAA22}.le.in{border-color:#6666CC}
+.le .t{color:#8B7860;font-size:9px;margin-right:3px}
+.le .n{color:#CC6600;font-weight:bold;margin-right:3px;font-size:11px}
+.le .m{color:#4A3A2A;font-size:10px}
+
+.sb{display:flex;align-items:center;gap:3px;margin-bottom:3px}
+.sb .n{width:52px;text-align:right;color:#5A4008;font-size:10px;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb .b{flex:1;height:11px;background:#444;border:1px solid #222;border-radius:1px;overflow:hidden}
+.sb .f{height:100%;min-width:1px;border-radius:1px}
+.sb .v{width:28px;text-align:right;font-weight:bold;color:#CC3300;font-size:10px}
+
+.ac{display:flex;align-items:center;gap:5px;padding:4px 6px;margin-bottom:2px;background:#FFF8E8;border:1px solid #D4B896;border-radius:3px}
+.ac.on{background:#FFE8C0;border-color:#CC6600;box-shadow:0 0 4px #CC660040}
+.ac .fc{width:26px;height:26px;border-radius:3px;border:2px solid #8B6914;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.ac .i{flex:1;overflow:hidden}
+.ac .nm{font-weight:bold;font-size:11px;color:#5A4008}
+.ac .rl{font-size:9px;color:#8B7860}
+.ac .tk{font-size:10px;color:#CC6600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pw{width:100%;height:4px;background:#444;margin-top:2px;overflow:hidden;border-radius:1px}
+.pw .pf{height:100%;border-radius:1px}
+
+.cn{position:absolute;top:6px;right:8px;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:bold;z-index:10;border:2px solid}
+.cn.on{background:#DFF5D0;color:#228B22;border-color:#228B22}
+.cn.off{background:#FFD0D0;color:#CC0000;border-color:#CC0000}
+
+/* ── Mobile Portrait ── */
+@media(max-width:600px){
+  .app{grid-template-rows:36px 1fr 40px auto auto}
+  .top{padding:0 6px;gap:6px}
+  .top .logo{font-size:12px}
+  .stats{gap:4px}
+  .stat{font-size:10px}
+  .date{display:none}
+  .scene{min-height:180px}
+  .narr{padding:6px 10px;min-height:40px}
+  .narr .face{width:22px;height:22px;font-size:14px}
+  .narr .txt{font-size:11px}
+  .bottom{grid-template-columns:1fr;grid-template-rows:auto;max-height:220px}
+  .bottom .pnl{display:none;max-height:200px;overflow-y:auto}
+  .bottom .pnl.active{display:flex}
+  .tab-bar{display:flex;background:#1A1A3A;border-top:2px solid #8B6914}
+  .tab-bar .tab{flex:1;text-align:center;padding:8px 4px;color:#AAA;font-size:11px;
+    border:none;background:none;font-family:inherit;cursor:pointer;transition:color .2s}
+  .tab-bar .tab.active{color:#FFD080;border-top:2px solid #FFD080}
+  .tab-bar .tab:active{background:#2A2A5A}
+  .share-btn{display:inline-flex}
+}
+@media(min-width:601px){
+  .tab-bar{display:none}
+  .bottom .pnl{display:flex}
+  .share-btn{display:inline-flex}
+}
+/* ── Mobile Landscape ── */
+@media(max-height:400px) and (orientation:landscape){
+  .app{grid-template-rows:32px 1fr 0 0}
+  .narr,.bottom,.tab-bar{display:none}
+}
+/* ── Share button & QR modal ── */
+.share-btn{align-items:center;gap:3px;background:none;border:1px solid #FFD080;color:#FFD080;padding:2px 8px;
+  border-radius:3px;font-size:10px;cursor:pointer;font-family:inherit;margin-left:auto}
+.share-btn:hover{background:#FFD08020}
+.qr-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#000A;z-index:100;
+  align-items:center;justify-content:center}
+.qr-modal.show{display:flex}
+.qr-box{background:#FFF;border-radius:8px;padding:20px;text-align:center;max-width:320px;width:90%}
+.qr-box img{width:200px;height:200px;margin:10px auto}
+.qr-box .url{font-size:10px;word-break:break-all;color:#666;margin:8px 0}
+.qr-box .close-btn{background:#333;color:#FFF;border:none;padding:8px 20px;border-radius:4px;
+  cursor:pointer;font-family:inherit;font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top">
+  <div class="live off" id="lv"></div>
+  <div class="logo">에이전트 개발국 ++</div>
+  <div class="stats">
+    <div class="stat">📋<b id="sT">0</b>작업</div>
+    <div class="stat">✅<b id="sA">0</b>승인</div>
+    <div class="stat">🛡<b id="sD">0</b>차단</div>
+    <div class="stat">🔧<b id="sL">0</b>도구</div>
+    <div class="stat">⚡<b id="sO">-</b>ops/m</div>
+    <div class="stat">⏱<b id="sM">--</b></div>
+  </div>
+  <div class="date" id="ck"></div>
+  <button class="share-btn" id="shareBtn" title="공유/QR">📡</button>
+</div>
+<div class="scene"><canvas id="c"></canvas><div class="cn off" id="cs">연결 대기</div></div>
+<div class="narr">
+  <div class="face" id="nf">🏭</div>
+  <div class="txt" id="nt">에이전트 개발국에 오신 것을 환영합니다!</div>
+  <div class="cur">▼</div>
+</div>
+<div class="tab-bar">
+  <button class="tab active" data-panel="0">📜 로그</button>
+  <button class="tab" data-panel="1">📊 메트릭</button>
+  <button class="tab" data-panel="2">👥 직원</button>
+</div>
+<div class="bottom">
+  <div class="pnl active"><div class="ph">📜 활동 로그 <span class="c" id="lc">0</span></div><div class="pb" id="lb"></div></div>
+  <div class="pnl"><div class="ph">📊 메트릭스 <span class="c" id="mc"></span></div><div class="pb" id="sb"></div></div>
+  <div class="pnl"><div class="ph">👥 직원 <span class="c">8</span></div><div class="pb" id="ab"></div></div>
+</div>
+</div>
+<!-- QR Share Modal -->
+<div class="qr-modal" id="qrModal">
+  <div class="qr-box">
+    <div style="font-weight:bold;font-size:14px;margin-bottom:8px">📡 대시보드 공유</div>
+    <img id="qrImg" src="" alt="QR Code">
+    <div class="url" id="qrUrl"></div>
+    <button class="close-btn" id="qrClose">닫기</button>
+  </div>
+</div>
+<script>
+const _B=window.location.origin,_Q=window.location.search;
+const _T=(new URLSearchParams(_Q)).get('token');
+function _u(p){return _T?_B+p+'?token='+_T:_B+p}
+const SSE=_u('/api/events'),MAPI=_u('/api/metrics'),TAPI=_u('/api/timeline');
+const P=window.innerWidth<=600?3:5;
+let serverMetrics=null, timeline=[];
+const TK={Bash:'터미널',Read:'파일읽기',Write:'파일쓰기',Edit:'코드편집',Grep:'패턴검색',Glob:'파일찾기',WebSearch:'웹검색',WebFetch:'웹수집',Task:'서브에이전트',Skill:'스킬',NotebookEdit:'노트북',TaskCreate:'태스크생성',TaskUpdate:'태스크갱신',TaskList:'태스크목록',TaskGet:'태스크조회',TaskOutput:'결과확인',TaskStop:'태스크중단',ToolSearch:'도구탐색',AskUserQuestion:'질의'};
+function tk(t){if(!t)return'대기';if(TK[t])return TK[t];if(t.startsWith('mcp__serena__'))return'Serena';if(t.startsWith('mcp__memory__'))return'메모리';if(t.startsWith('mcp__context7'))return'문서조회';if(t.startsWith('mcp__filesystem'))return'파일시스템';if(t.startsWith('mcp__grep'))return'코드검색';if(t.startsWith('mcp__seq'))return'추론';if(t.startsWith('mcp__'))return'MCP';return t}
+
+// Characters - real dev agent names
+const C={
+  bash:{h:'#6644CC',s:'#4834D4',p:'#2A1B6A',l:'Shell',r:'명령실행',e:'$_'},
+  reader:{h:'#4488CC',s:'#0984E3',p:'#06527A',l:'Reader',r:'파일분석',e:'{}'},
+  writer:{h:'#FF6699',s:'#D63031',p:'#8B1A1A',l:'Editor',r:'코드편집',e:'<>'},
+  finder:{h:'#44AA88',s:'#00796B',p:'#004040',l:'Search',r:'패턴검색',e:'??'},
+  mcp:{h:'#44DDAA',s:'#00B894',p:'#006644',l:'MCP',r:'서버연동',e:'::'},
+  agent:{h:'#AA88FF',s:'#6C5CE7',p:'#3D2B8A',l:'Agent',r:'오케스트라',e:'>>'},
+  web:{h:'#FF88AA',s:'#E84393',p:'#8B2252',l:'Web',r:'웹리서치',e:'@'},
+  serena:{h:'#FFCC44',s:'#B8860B',p:'#6B4E00',l:'Serena',r:'심볼분석',e:'fn'},
+};
+
+let entries=[],fr=0,connected=false,lastET=0;
+const cv=document.getElementById('c'),mainCx=cv.getContext('2d');
+// Double buffer - cx always points to offscreen buffer
+const buf=document.createElement('canvas');
+let cx=buf.getContext('2d');
+let bg=null,bgW=0,bgH=0;
+// HiDPI support - devicePixelRatio scaling
+let dpr=Math.min(window.devicePixelRatio||1,2);
+function resize(){
+  const rect=cv.parentElement.getBoundingClientRect();
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=rect.width*dpr;
+  cv.height=rect.height*dpr;
+  cv.style.width=rect.width+'px';
+  cv.style.height=rect.height+'px';
+  // Buffer matches main canvas size
+  buf.width=cv.width;buf.height=cv.height;
+  cx=buf.getContext('2d');
+  cx.setTransform(dpr,0,0,dpr,0,0);
+  bg=null;
+}
+resize();window.addEventListener('resize',resize);
+
+// Logical canvas dimensions (CSS pixels)
+function cW(){return cv.width/dpr}
+function cH(){return cv.height/dpr}
+
+// ── KAIROSOFT-STYLE CHARACTER (chibi: big head, small body) ──
+// Proportions: head=6s, body=3s, legs=2s, total ~11s
+function drawCh(px,py,type,wf,dir,work,bub,ag){
+  const c=C[type]||C.agent, s=P;
+  const OL='#1A1A0A',SK='#FFD8B0',SK2='#EEBB88';
+  const idle=ag&&ag.st==='idle', mood=ag?ag.mood:0;
+
+  if(work){
+    // ═══ SITTING AT DESK (only upper body visible above desk) ═══
+    const bob=Math.sin(fr*.15)*.5;
+    const y=py+bob;
+    // Arms on desk (typing)
+    const tL=Math.sin(fr*.5)*1, tR=Math.sin(fr*.5+3.14)*1;
+    cx.fillStyle=c.s;
+    cx.fillRect(px-5*s,y+3*s+tL,2*s,2.5*s);
+    cx.fillRect(px+3*s,y+3*s+tR,2*s,2.5*s);
+    cx.fillStyle=SK;// Hands
+    cx.fillRect(px-5*s,y+5*s+tL,2*s,s);
+    cx.fillRect(px+3*s,y+5*s+tR,2*s,s);
+
+    // Body (torso only)
+    cx.fillStyle=OL;cx.fillRect(px-4*s-1,y+1.5*s-1,8*s+2,4*s+2);
+    cx.fillStyle=c.s;cx.fillRect(px-4*s,y+1.5*s,8*s,4*s);
+    // Collar
+    cx.fillStyle='#FFF';cx.fillRect(px-1.5*s,y+1.5*s,3*s,s);
+
+    // Head (BIG - kairosoft chibi)
+    cx.fillStyle=OL;cx.fillRect(px-5*s-1,y-5.5*s-1,10*s+2,7*s+2);
+    cx.fillStyle=SK;cx.fillRect(px-5*s,y-5.5*s,10*s,7*s);
+    // Cheeks (blush)
+    cx.fillStyle='#FFAA8840';
+    cx.fillRect(px-4.5*s,y-1*s,2*s,1.5*s);
+    cx.fillRect(px+2.5*s,y-1*s,2*s,1.5*s);
+
+    // Hair (agent color)
+    cx.fillStyle=OL;cx.fillRect(px-5.5*s-1,y-7*s-1,11*s+2,3.5*s+2);
+    cx.fillStyle=c.h;cx.fillRect(px-5.5*s,y-7*s,11*s,3.5*s);
+    // Sideburns
+    cx.fillRect(px-5.5*s,y-4*s,2*s,2.5*s);
+    cx.fillRect(px+3.5*s,y-4*s,2*s,2.5*s);
+
+    // Eyes (focused on screen - looking forward)
+    if(fr%100<97){
+      cx.fillStyle='#FFF';
+      cx.fillRect(px-3.5*s,y-3.5*s,3*s,2.5*s);
+      cx.fillRect(px+.5*s,y-3.5*s,3*s,2.5*s);
+      cx.fillStyle='#000';
+      cx.fillRect(px-2.5*s,y-3*s,1.8*s,1.8*s);
+      cx.fillRect(px+1.2*s,y-3*s,1.8*s,1.8*s);
+      // Highlight
+      cx.fillStyle='#FFF';
+      cx.fillRect(px-2.2*s,y-3*s,s*.6,s*.6);
+      cx.fillRect(px+1.5*s,y-3*s,s*.6,s*.6);
+    }else{// Blink
+      cx.fillStyle='#000';
+      cx.fillRect(px-3.5*s,y-2.5*s,3*s,s*.5);
+      cx.fillRect(px+.5*s,y-2.5*s,3*s,s*.5);
+    }
+
+    // Mouth (concentrating)
+    cx.fillStyle='#CC6644';
+    cx.fillRect(px-s*.5,y,fr%60<10?2*s:s,s*.5);
+
+    // Accessory
+    drawAccessory(px,y,type,s,true);
+
+    // Sweat (when timer high = hard work)
+    if(ag&&ag.wt>60){
+      const sw=((fr*2)%25);
+      cx.globalAlpha=1-sw/25;
+      cx.fillStyle='#88CCFF';
+      cx.fillRect(px+5*s,y-5*s+sw*.5,s*.5,s*.8);
+      cx.globalAlpha=1;
+    }
+
+    // Work FX
+    drawWorkFx(px,y,type,s);
+
+    // Status: spinning gear
+    drawStatusIcon(px+6.5*s,y-7*s,'gear');
+
+    // Bubble
+    if(bub) drawBub(px,y-9*s,bub);
+
+    // Name tag (below desk area)
+    drawNameTag(px,py+8*s,c);
+    return;
+  }
+
+  // ═══ STANDING / WALKING (full body, on floor) ═══
+  const bounce=Math.sin(wf*.3)*1;
+  const y=py+bounce;
+  const walk=ag&&ag.st==='walk';
+  const step=walk?Math.sin(wf*.35)*2:Math.sin(wf*.08)*.5;
+
+  // Shadow
+  cx.fillStyle='#00000020';
+  cx.fillRect(px-4*s,y+8.5*s,8*s,1.5*s);
+
+  // Feet/Shoes
+  cx.fillStyle=OL;
+  cx.fillRect(px-2.5*s,y+7*s+(step>0?-s*.5:0),2*s,2*s);
+  cx.fillRect(px+.5*s,y+7*s+(step<0?-s*.5:0),2*s,2*s);
+  cx.fillStyle=c.p;
+  cx.fillRect(px-2.3*s,y+7.2*s+(step>0?-s*.5:0),1.6*s,1.5*s);
+  cx.fillRect(px+.7*s,y+7.2*s+(step<0?-s*.5:0),1.6*s,1.5*s);
+
+  // Legs
+  cx.fillStyle=OL;cx.fillRect(px-2.5*s-1,y+5.5*s-1,5*s+2,2*s+2);
+  cx.fillStyle=c.p;cx.fillRect(px-2.5*s,y+5.5*s,5*s,2*s);
+
+  // Body
+  cx.fillStyle=OL;cx.fillRect(px-3.5*s-1,y+2*s-1,7*s+2,4*s+2);
+  cx.fillStyle=c.s;cx.fillRect(px-3.5*s,y+2*s,7*s,4*s);
+  // Collar
+  cx.fillStyle='#FFF';cx.fillRect(px-1.2*s,y+2*s,2.4*s,s*.8);
+
+  // Arms
+  let armL=step*.3, armR=-step*.3;
+  if(idle&&mood===1){armL=-2;armR=-2}// Stretch
+  if(idle&&mood===3){armR=-3}// Coffee
+  cx.fillStyle=OL;
+  cx.fillRect(px-4.5*s-1,y+2.5*s+armL-1,1.5*s+2,3.5*s+2);
+  cx.fillRect(px+3*s-1,y+2.5*s+armR-1,1.5*s+2,3.5*s+2);
+  cx.fillStyle=c.s;
+  cx.fillRect(px-4.5*s,y+2.5*s+armL,1.5*s,3.5*s);
+  cx.fillRect(px+3*s,y+2.5*s+armR,1.5*s,3.5*s);
+  // Hands
+  cx.fillStyle=SK;
+  cx.fillRect(px-4.5*s,y+5.5*s+armL,1.5*s,1.2*s);
+  cx.fillRect(px+3*s,y+5.5*s+armR,1.5*s,1.2*s);
+
+  // Coffee cup (mood 3)
+  if(idle&&mood===3){
+    cx.fillStyle='#FFF';cx.fillRect(px+3.5*s,y+2*s+armR,2*s,2.5*s);
+    cx.fillStyle='#8B6914';cx.fillRect(px+3.5*s,y+2*s+armR,2*s,.4*s);
+    cx.fillStyle='#6B3A1A';cx.fillRect(px+3.7*s,y+2.4*s+armR,1.6*s,1.6*s);
+    if(fr%40<25){cx.globalAlpha=.4;cx.fillStyle='#FFF';
+      cx.fillRect(px+4*s,y+1.2*s+armR-Math.sin(fr*.1)*s,s*.4,s*.7);
+      cx.fillRect(px+4.5*s,y+.8*s+armR-Math.cos(fr*.12)*s,s*.3,s*.5);
+      cx.globalAlpha=1}
+  }
+
+  // Head (BIG kairosoft chibi)
+  let headOff=0;
+  if(idle&&mood===2)headOff=Math.sin(fr*.04)*2;
+  cx.fillStyle=OL;cx.fillRect(px-5*s-1+headOff,y-5*s-1,10*s+2,7*s+2);
+  cx.fillStyle=SK;cx.fillRect(px-5*s+headOff,y-5*s,10*s,7*s);
+  // Cheeks
+  cx.fillStyle='#FFAA8840';
+  cx.fillRect(px-4.5*s+headOff,y-.5*s,2*s,1.5*s);
+  cx.fillRect(px+2.5*s+headOff,y-.5*s,2*s,1.5*s);
+
+  // Hair
+  cx.fillStyle=OL;cx.fillRect(px-5.5*s-1+headOff,y-6.5*s-1,11*s+2,3.5*s+2);
+  cx.fillStyle=c.h;cx.fillRect(px-5.5*s+headOff,y-6.5*s,11*s,3.5*s);
+  cx.fillRect(px-5.5*s+headOff,y-3.5*s,2*s,2.5*s);
+  cx.fillRect(px+3.5*s+headOff,y-3.5*s,2*s,2.5*s);
+
+  // Eyes
+  const blink=fr%180>=176;
+  if(!blink&&!(idle&&mood===4)){
+    const ex=dir>0?s*.3:dir<0?-s*.3:0;
+    cx.fillStyle='#FFF';
+    cx.fillRect(px-3.5*s+headOff,y-3*s,3*s,2.5*s);
+    cx.fillRect(px+.5*s+headOff,y-3*s,3*s,2.5*s);
+    cx.fillStyle='#222';
+    cx.fillRect(px-2.5*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);
+    cx.fillRect(px+1.2*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);
+    cx.fillStyle='#FFF';
+    cx.fillRect(px-2.2*s+ex+headOff,y-2.5*s,s*.6,s*.6);
+    cx.fillRect(px+1.5*s+ex+headOff,y-2.5*s,s*.6,s*.6);
+  }else if(idle&&mood===4){// Sleepy half-closed
+    cx.fillStyle='#FFF';
+    cx.fillRect(px-3.5*s+headOff,y-2.5*s,3*s,1.2*s);
+    cx.fillRect(px+.5*s+headOff,y-2.5*s,3*s,1.2*s);
+    cx.fillStyle='#222';
+    cx.fillRect(px-2.5*s+headOff,y-2*s,1.5*s,s*.8);
+    cx.fillRect(px+1.2*s+headOff,y-2*s,1.5*s,s*.8);
+  }else{// Blink
+    cx.fillStyle='#222';
+    cx.fillRect(px-3*s+headOff,y-1.8*s,2.5*s,s*.4);
+    cx.fillRect(px+.5*s+headOff,y-1.8*s,2.5*s,s*.4);
+  }
+
+  // Mouth
+  cx.fillStyle='#CC6644';
+  if(idle&&mood===4){cx.fillRect(px-.5*s+headOff,y+.5*s,s*1.2,s*.8)}// Yawn
+  else if(idle&&mood===1){cx.fillRect(px-s+headOff,y+.5*s,2*s,s*.3);cx.fillRect(px-.5*s+headOff,y+.7*s,s,s*.2)}// Smile
+  else if(walk){cx.fillRect(px-.3*s+headOff,y+.5*s,s*.6,s*.4)}// Focused small
+  else{cx.fillRect(px-.5*s+headOff,y+.5*s,s,s*.4)}// Normal
+
+  // Accessory
+  drawAccessory(px+headOff,y,type,s,false);
+
+  // Idle status
+  if(idle){
+    if(mood===4) drawStatusIcon(px+6*s,y-7*s,'zzz');
+    else if(mood===0) drawStatusIcon(px+6*s,y-7*s,'idle');
+  }
+
+  // Completion flash
+  if(ag&&ag.compFx>0){
+    cx.globalAlpha=ag.compFx/20;
+    cx.fillStyle='#FFD080';
+    cx.fillRect(px-6*s,y-7*s,12*s,16*s);
+    cx.globalAlpha=1;
+  }
+
+  drawNameTag(px,y+9*s,c);
+}
+
+// ── Agent accessories (unique per character) ──
+function drawAccessory(px,y,type,s,sitting){
+  switch(type){
+    case 'bash':// Headphones
+      cx.fillStyle='#333';
+      cx.fillRect(px-5.8*s,y-4*s,1.2*s,3*s);// L ear
+      cx.fillRect(px+4.6*s,y-4*s,1.2*s,3*s);// R ear
+      cx.fillStyle='#555';
+      cx.fillRect(px-4*s,y-7.5*s,8*s,s*.8);// Band
+      break;
+    case 'reader':// Glasses
+      cx.fillStyle='#8B6914';
+      cx.fillRect(px-4*s,y-3.2*s,3.2*s,s*.4);// L frame
+      cx.fillRect(px+.8*s,y-3.2*s,3.2*s,s*.4);// R frame
+      cx.fillRect(px-4*s,y-3.2*s,s*.3,2.5*s);cx.fillRect(px-.8*s,y-3.2*s,s*.3,2.5*s);
+      cx.fillRect(px+.8*s,y-3.2*s,s*.3,2.5*s);cx.fillRect(px+3.7*s,y-3.2*s,s*.3,2.5*s);
+      cx.fillRect(px-.8*s,y-2.5*s,1.6*s,s*.3);// Bridge
+      break;
+    case 'writer':// Beanie cap
+      cx.fillStyle='#CC2244';
+      cx.fillRect(px-5*s,y-7.5*s,10*s,2*s);
+      cx.fillStyle='#FF4466';
+      cx.fillRect(px-5*s,y-7.5*s,10*s,s*.6);
+      cx.fillRect(px-s*.5,y-8*s,s,s);// Pom
+      break;
+    case 'finder':// Detective cap visor
+      cx.fillStyle='#556B2F';
+      cx.fillRect(px-5.5*s,y-7*s,11*s,1.5*s);
+      cx.fillRect(px-6*s,y-5.8*s,3*s,s);// Visor
+      break;
+    case 'mcp':// Antenna
+      cx.fillStyle='#44DDAA';
+      cx.fillRect(px-.2*s,y-8.5*s,s*.4,2*s);
+      cx.fillStyle='#00FF88';
+      cx.fillRect(px-.5*s,y-9*s,s,s);
+      if(fr%30<15){cx.fillStyle='#00FF8860';cx.fillRect(px-s,y-9.5*s,2*s,2*s)}
+      break;
+    case 'agent':// Tie
+      if(!sitting){
+        cx.fillStyle='#CC3300';
+        cx.fillRect(px-.5*s,y+2.8*s,s,2.5*s);
+        cx.fillRect(px-.8*s,y+2.5*s,1.6*s,s*.6);
+      }
+      break;
+    case 'web':// Headset (one ear)
+      cx.fillStyle='#333';
+      cx.fillRect(px-5.8*s,y-4*s,1.2*s,2.5*s);
+      cx.fillStyle='#444';
+      cx.fillRect(px-6.5*s,y-2*s,2*s,1.5*s);// Mic
+      cx.fillRect(px-6.5*s,y-2*s,s*.3,2*s);// Mic arm
+      break;
+    case 'serena':// Hair bow
+      cx.fillStyle='#FFD700';
+      cx.fillRect(px+3*s,y-6*s,2.5*s,1.5*s);
+      cx.fillStyle='#FFA500';
+      cx.fillRect(px+3.8*s,y-6*s,s*.8,1.5*s);
+      break;
+  }
+}
+
+// ── Name tag ──
+function drawNameTag(px,y,c){
+  const nm=c.l, nw=nm.length*14+14;
+  cx.font='bold 14px "Malgun Gothic",sans-serif';cx.textAlign='center';
+  cx.fillStyle='#000';cx.fillRect(px-nw/2-2,y-1,nw+4,20);
+  cx.fillStyle=c.p;cx.fillRect(px-nw/2,y,nw,18);
+  cx.fillStyle='#FFD080';cx.fillRect(px-nw/2,y,nw,2);cx.fillRect(px-nw/2,y+16,nw,2);
+  cx.fillStyle='#000';cx.fillText(nm,px+1,y+14);
+  cx.fillStyle='#FFF';cx.fillText(nm,px,y+13);
+}
+
+// ── Agent-specific work effects ──
+function drawWorkFx(px,y,type,s){
+  cx.font='bold 9px monospace';cx.textAlign='center';
+  const phase=fr*.12;
+  switch(type){
+    case 'bash':
+      ['$_','>_','OK','#!','~~'].forEach((ch,i)=>{
+        const fy=((fr*2+i*25)%70);cx.globalAlpha=1-fy/70;
+        cx.fillStyle='#44DD66';
+        cx.fillText(ch,px+(Math.sin(i*2.1)*3-1)*s,y-8*s-fy*.4);
+      });break;
+    case 'reader':
+      for(let i=0;i<2;i++){
+        const fy=((fr*1.5+i*40)%60);cx.globalAlpha=.8-fy/75;
+        cx.fillStyle='#FFF';cx.fillRect(px+(i*2-1)*5*s,y-9*s-fy*.3,3*s,3.5*s);
+        cx.fillStyle='#6688CC';
+        for(let j=0;j<3;j++)cx.fillRect(px+(i*2-1)*5*s+s*.3,y-8.5*s+j*s-fy*.3,2.2*s,s*.25);
+      }break;
+    case 'writer':
+      ['</>','{;}','fn(','//!','==='].forEach((ch,i)=>{
+        const fy=((fr*2.2+i*20)%65);cx.globalAlpha=1-fy/65;
+        cx.fillStyle=['#FF6699','#FFAA22','#88BBFF','#44DD66','#CC88FF'][i];
+        cx.fillText(ch,px+(Math.sin(i*1.7)*3.5)*s,y-8*s-fy*.35);
+      });break;
+    case 'finder':
+      ['??','>>','**','..','!!'].forEach((ch,i)=>{
+        const fy=((fr*1.8+i*22)%60);cx.globalAlpha=1-fy/60;
+        cx.fillStyle='#44AA88';
+        cx.fillText(ch,px+(Math.cos(i*1.4)*3)*s,y-8*s-fy*.35);
+      });break;
+    case 'mcp':
+      for(let i=0;i<4;i++){
+        const ang=phase+i*Math.PI/2,r=(3+Math.sin(fr*.08+i)*1.5)*s;
+        cx.globalAlpha=.5+Math.sin(fr*.1+i)*.3;
+        cx.fillStyle='#44DDAA';
+        cx.fillRect(px+Math.cos(ang)*r-s*.4,y-8*s+Math.sin(ang)*r-s*.4,s*.8,s*.8);
+      }
+      cx.globalAlpha=1;cx.fillStyle='#00FF88';cx.fillRect(px-s*.5,y-8.5*s,s,s);
+      break;
+    case 'agent':
+      ['>>','>>','>>'].forEach((_,i)=>{
+        const fx=((fr*3+i*30)%80)-40;cx.globalAlpha=1-Math.abs(fx)/40;
+        cx.fillStyle='#AA88FF';
+        cx.fillRect(px+fx*.5,y-8*s-i*2*s,s*1.5,s*.8);
+      });break;
+    case 'web':
+      ['@','://','GET','200','www'].forEach((ch,i)=>{
+        const fy=((fr*2+i*18)%55);cx.globalAlpha=1-fy/55;
+        cx.fillStyle='#FF88AA';
+        cx.fillText(ch,px+(Math.sin(i*2.3)*3)*s,y-8*s-fy*.35);
+      });break;
+    case 'serena':
+      cx.fillStyle='#B8860B';cx.globalAlpha=.7;
+      cx.fillRect(px-s*.3,y-11*s,s*.6,4*s);
+      [[-2,-2],[2,-2.5],[-1.5,-3.5],[1.5,-4],[0,-5]].forEach(([bx,by],i)=>{
+        cx.fillStyle=['#44AA44','#228B22','#66CC66','#44AA44','#88DD88'][i];
+        cx.globalAlpha=.5+Math.sin(fr*.06+i)*.3;
+        cx.fillRect(px+bx*s,y-11*s+by*s,s*1.2,s*1.2);
+      });break;
+  }
+  cx.globalAlpha=1;
+}
+
+// ── Status icons ──
+function drawStatusIcon(x,y,type){
+  if(type==='gear'){
+    const gfr=fr*.08;
+    cx.fillStyle='#FFD080';
+    for(let i=0;i<6;i++){
+      const a=gfr+i*Math.PI/3,r=3.5;
+      cx.fillRect(x+Math.cos(a)*r-1.5,y+Math.sin(a)*r-1.5,3,3);
+    }
+    cx.fillStyle='#8B6914';cx.fillRect(x-2,y-2,4,4);
+  }else if(type==='zzz'){
+    cx.font='bold 10px monospace';cx.textAlign='left';
+    const z=((fr>>4)%3);
+    cx.globalAlpha=.6;cx.fillStyle='#8888CC';
+    if(z>=0)cx.fillText('z',x,y);
+    if(z>=1)cx.fillText('z',x+5,y-6);
+    if(z>=2)cx.fillText('Z',x+9,y-13);
+    cx.globalAlpha=1;
+  }else if(type==='idle'){
+    cx.fillStyle='#AAAAAA';
+    const dp=(fr>>3)%4;
+    for(let i=0;i<3;i++){cx.globalAlpha=i<=dp?.6:.15;cx.fillRect(x+i*4,y,2,2)}
+    cx.globalAlpha=1;
+  }
+}
+
+function drawBub(x,y,t){
+  const d=t.length>12?t.slice(0,12)+'…':t;
+  const w=Math.min(d.length*12+18,200), h=28;
+  cx.fillStyle='#5A400880';cx.fillRect(x-w/2+2,y-h+2,w,h);
+  cx.fillStyle='#FFF8E8';cx.fillRect(x-w/2,y-h,w,h);
+  cx.strokeStyle='#8B6914';cx.lineWidth=2;cx.strokeRect(x-w/2,y-h,w,h);
+  cx.fillStyle='#FFF8E8';cx.fillRect(x-4,y,8,6);
+  cx.font='bold 14px "Malgun Gothic",sans-serif';cx.textAlign='center';
+  cx.fillStyle='#000';cx.fillText(d,x+1,y-h/2+6);
+  cx.fillStyle='#2A1B0A';cx.fillText(d,x,y-h/2+5);
+}
+
+// ── BACKGROUND CACHE ──
+function buildBg(w,h){
+  const o=document.createElement('canvas');o.width=w*dpr;o.height=h*dpr;
+  const g=o.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  const fy=h*.55, s=P;
+
+  // Wall - gradient with subtle texture
+  const wallGrad=g.createLinearGradient(0,0,0,fy);
+  wallGrad.addColorStop(0,'#FFF0D8');wallGrad.addColorStop(.7,'#F5E6C8');wallGrad.addColorStop(1,'#D4B896');
+  g.fillStyle=wallGrad;g.fillRect(0,0,w,fy);
+  // Wall texture (subtle vertical lines)
+  g.fillStyle='#E8D4B020';
+  for(let x=0;x<w;x+=8)g.fillRect(x,0,1,fy);
+
+  // Baseboard with shadow
+  g.fillStyle='#00000015';g.fillRect(0,fy-6,w,8);
+  g.fillStyle='#6B4E00';g.fillRect(0,fy-3,w,7);
+  g.fillStyle='#8B6914';g.fillRect(0,fy-3,w,5);
+  g.fillStyle='#A08030';g.fillRect(0,fy-3,w,2);
+
+  // Floor - wood pattern
+  for(let x=0;x<w;x+=24)for(let y=fy+4;y<h;y+=12){
+    const shade=((x/24+y/12)%3===0)?0:((x/24+y/12)%3===1)?1:2;
+    g.fillStyle=['#5A9E50','#4D8A44','#3D7A35'][shade];
+    g.fillRect(x,y,24,12);
+    // Floor shine
+    g.fillStyle='#FFFFFF06';g.fillRect(x,y,24,1);
+  }
+
+  // ── Window (larger, with sky scene) ──
+  const wx=w*.42, wW=110, wH=58;
+  // Window frame outer
+  g.fillStyle='#8B6914';g.fillRect(wx-4,6,wW+8,wH+8);
+  // Sky gradient
+  const skyG=g.createLinearGradient(wx,10,wx,10+wH);
+  skyG.addColorStop(0,'#88CCFF');skyG.addColorStop(.6,'#BBDDFF');skyG.addColorStop(1,'#E0F0FF');
+  g.fillStyle=skyG;g.fillRect(wx,10,wW,wH);
+  // Clouds
+  g.fillStyle='#FFFFFFCC';
+  [[15,18,16],[45,12,12],[75,20,14]].forEach(([cx,cy,r])=>{
+    g.beginPath();g.arc(wx+cx,10+cy,r,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(wx+cx+r*.7,10+cy+2,r*.7,0,Math.PI*2);g.fill();
+  });
+  // Window frame inner
+  g.strokeStyle='#C8A882';g.lineWidth=3;g.strokeRect(wx,10,wW,wH);
+  g.lineWidth=2;
+  g.beginPath();g.moveTo(wx+wW/2,10);g.lineTo(wx+wW/2,10+wH);g.stroke();
+  g.beginPath();g.moveTo(wx,10+wH/2);g.lineTo(wx+wW,10+wH/2);g.stroke();
+  // Curtain accents
+  g.fillStyle='#FFE0A080';g.fillRect(wx-2,8,6,wH+6);g.fillRect(wx+wW-4,8,6,wH+6);
+
+  // ── Clock (animated hands drawn in render) ──
+  g.fillStyle='#FFF';g.beginPath();g.arc(w*.15,28,14,0,Math.PI*2);g.fill();
+  g.strokeStyle='#8B6914';g.lineWidth=3;g.stroke();
+  g.fillStyle='#8B6914';g.font='bold 5px sans-serif';g.textAlign='center';
+  ['12','3','6','9'].forEach((n,i)=>{
+    const a=i*Math.PI/2-Math.PI/2;
+    g.fillText(n,w*.15+Math.cos(a)*10,28+Math.sin(a)*10+2);
+  });
+
+  // ── Poster / Notice board ──
+  g.fillStyle='#4A3020';g.fillRect(w*.73-2,8,44,36);
+  g.fillStyle='#FFE8C0';g.fillRect(w*.73,10,40,32);
+  g.fillStyle='#CC3300';g.font='bold 9px sans-serif';g.textAlign='center';
+  g.fillText('BEST',w*.73+20,24);g.fillText('AGENT',w*.73+20,35);
+  // Pin
+  g.fillStyle='#CC0000';g.beginPath();g.arc(w*.73+20,12,3,0,Math.PI*2);g.fill();
+
+  // ── Wall lights ──
+  [[w*.25,5],[w*.75,5]].forEach(([lx,ly])=>{
+    g.fillStyle='#FFD080';g.fillRect(lx-8,ly,16,4);
+    g.fillStyle='#FFF8E0';g.fillRect(lx-6,ly+4,12,3);
+    // Light cone
+    const lg=g.createLinearGradient(lx,ly+7,lx,ly+45);
+    lg.addColorStop(0,'#FFD08020');lg.addColorStop(1,'#FFD08000');
+    g.fillStyle=lg;
+    g.beginPath();g.moveTo(lx-8,ly+7);g.lineTo(lx+8,ly+7);
+    g.lineTo(lx+25,ly+45);g.lineTo(lx-25,ly+45);g.closePath();g.fill();
+  });
+
+  // ── Plants (larger, more detailed) ──
+  [[w*.04,fy-10],[w*.96,fy-10]].forEach(([px,py])=>{
+    // Pot
+    g.fillStyle='#AA5533';g.fillRect(px-6,py+8,12,10);
+    g.fillStyle='#CC6633';g.fillRect(px-7,py+6,14,4);
+    // Leaves
+    g.fillStyle='#228B22';
+    [[-6,-8],[0,-14],[6,-8],[-3,-11],[3,-11]].forEach(([lx,ly])=>{
+      g.beginPath();g.arc(px+lx,py+ly,5,0,Math.PI*2);g.fill();
+    });
+    g.fillStyle='#44AA44';
+    [[-4,-6],[2,-12],[5,-6]].forEach(([lx,ly])=>{
+      g.beginPath();g.arc(px+lx,py+ly,4,0,Math.PI*2);g.fill();
+    });
+  });
+
+  // ── Desks (enhanced with items) ──
+  DESKS.forEach((d,di)=>{
+    const x=d.x*w, dy=fy+2, ds=s*.8;
+    const ac=C[AT[di]];
+
+    // Table with wood grain
+    g.fillStyle='#1A1A0A';g.fillRect(x-8*s-1,dy-1,16*s+2,2.5*ds+2);
+    g.fillStyle='#A07848';g.fillRect(x-8*s,dy,16*s,2.5*ds);
+    // Wood grain lines
+    g.fillStyle='#8B683030';
+    for(let i=0;i<3;i++)g.fillRect(x-7*s,dy+i*ds*.8+ds*.2,14*s,1);
+    // Table edge highlight
+    g.fillStyle='#B8884020';g.fillRect(x-8*s,dy,16*s,1);
+
+    // Table legs
+    g.fillStyle='#8B6914';g.fillRect(x-7*s,dy+2.5*ds,1.2*s,6*s);g.fillRect(x+5.8*s,dy+2.5*ds,1.2*s,6*s);
+
+    // Monitor (with agent color accent)
+    g.fillStyle='#1A1A0A';g.fillRect(x-4*s-1,dy-8*s-1,8*s+2,7.5*s+2);
+    g.fillStyle='#333';g.fillRect(x-4*s,dy-8*s,8*s,7.5*s);
+    g.fillStyle='#0A0A1A';g.fillRect(x-3.2*s,dy-7.5*s,6.4*s,5.8*s);
+    // Monitor brand color strip
+    g.fillStyle=ac.s;g.fillRect(x-4*s,dy-8*s,8*s,1.5);
+    // Monitor stand
+    g.fillStyle='#555';g.fillRect(x-1*s,dy-.5*s,2*s,1*s);
+    g.fillRect(x-2*s,dy+.3*s,4*s,.5*s);
+
+    // Keyboard
+    g.fillStyle='#444';g.fillRect(x-3*s,dy+1*s,6*s,1.8*s);
+    g.fillStyle='#555';g.fillRect(x-2.8*s,dy+1.2*s,5.6*s,1.4*s);
+    // Key rows
+    g.fillStyle='#666';
+    for(let r=0;r<3;r++)for(let k=0;k<6;k++){
+      g.fillRect(x-2.6*s+k*s*.9,dy+1.3*s+r*s*.45,s*.7,s*.35);
+    }
+
+    // Mouse
+    g.fillStyle='#555';g.fillRect(x+3.5*s,dy+1.5*s,1.2*s,1.8*s);
+    g.fillStyle='#666';g.fillRect(x+3.6*s,dy+1.6*s,1*s,.6*s);
+
+    // Chair (more detailed)
+    // Seat
+    g.fillStyle='#444';g.fillRect(x-3*s,dy+4*s,6*s,1.2*s);
+    g.fillStyle='#555';g.fillRect(x-2.8*s,dy+3.8*s,5.6*s,.4*s);
+    // Back rest
+    g.fillStyle='#3A3A3A';g.fillRect(x-2.5*s,dy+1.5*s,.6*s,2.5*s);
+    g.fillRect(x+1.9*s,dy+1.5*s,.6*s,2.5*s);
+    // Pole
+    g.fillStyle='#666';g.fillRect(x-.3*s,dy+5.2*s,.6*s,2.5*s);
+    // Wheels
+    g.fillStyle='#333';
+    g.beginPath();g.arc(x-2*s,dy+8*s,.8*s,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(x+2*s,dy+8*s,.8*s,0,Math.PI*2);g.fill();
+    g.beginPath();g.arc(x,dy+8*s,.8*s,0,Math.PI*2);g.fill();
+
+    // Desk items (unique per agent)
+    if(di%3===0){// Coffee mug
+      g.fillStyle='#F5E6C8';g.fillRect(x+5*s,dy-s*.5,1.5*s,2*s);
+      g.fillStyle='#8B6914';g.fillRect(x+5*s,dy-s*.5,1.5*s,.4*s);
+      g.fillStyle='#6B3A1A';g.fillRect(x+5.2*s,dy-.1*s,1.1*s,1.2*s);
+    }else if(di%3===1){// Stack of papers
+      g.fillStyle='#FFF';g.fillRect(x+5*s,dy-s*.8,2*s,1.5*s);
+      g.fillStyle='#EEE';g.fillRect(x+5.1*s,dy-s*.6,2*s,1.5*s);
+      g.fillStyle='#DDD';g.fillRect(x+5.2*s,dy-s*.4,2*s,1.5*s);
+    }else{// Sticky notes
+      g.fillStyle='#FFEE88';g.fillRect(x+5*s,dy-s*.5,1.8*s,1.8*s);
+      g.fillStyle='#88BB44';g.fillRect(x+5.3*s,dy+.5*s,1.8*s,1.8*s);
+    }
+
+    // Desk label
+    const dl=d.label, dlw=dl.length*11+10;
+    g.fillStyle='#1A1A0ADD';g.fillRect(x-dlw/2-1,dy+9.5*s-1,dlw+2,18);
+    g.fillStyle=ac.p;g.fillRect(x-dlw/2,dy+9.5*s,dlw,16);
+    g.fillStyle=ac.s;g.fillRect(x-dlw/2,dy+9.5*s,dlw,2);
+    g.fillStyle='#FFF';g.font='bold 12px "Malgun Gothic",sans-serif';g.textAlign='center';
+    g.fillText(dl,x,dy+9.5*s+13);
+  });
+
+  bg=o;bgW=w;bgH=h;
+}
+
+// ── DESK ACTIVE SCREEN OVERLAY (agent-type-specific) ──
+function drawActiveScreen(x,fy,agentType){
+  const s=P, dy=fy+2;
+  const sx=x-3.2*s, sy=dy-7.5*s, sw=6.4*s, sh=5.8*s;
+  const scroll=fr*.8;
+
+  switch(agentType){
+    case 'bash':// Green terminal
+      cx.fillStyle='#0A1A0A';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#44DD66';
+      const tLines=['$ git status','M  src/app.ts','$ npm run build','✓ compiled OK','$ node server'];
+      tLines.forEach((l,i)=>{
+        const ly=((i*s*1.2+scroll)%(sh+s*1.2))-s*1.2;
+        if(ly>0&&ly<sh){cx.font='6px monospace';cx.textAlign='left';cx.fillText(l,sx+2,sy+ly+6)}
+      });
+      // Cursor blink
+      if(fr%40<25){cx.fillRect(sx+sw-s*1.5,sy+sh-s*1.2,s*.6,s*.8)}
+      break;
+    case 'reader':// Blue document viewer
+      cx.fillStyle='#0A0A2A';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#6688CC';
+      for(let i=0;i<6;i++){
+        const lw=[4,5.5,3,5,4.5,2.5][i]*s;
+        cx.fillRect(sx+s*.3,sy+s*.4+i*s*.9,Math.min(lw,sw-s),s*.4);
+      }
+      // Highlight bar
+      cx.fillStyle='#FFDD4430';
+      const hl=((fr>>4)%5);
+      cx.fillRect(sx,sy+s*.3+hl*s*.9,sw,s*.6);
+      break;
+    case 'writer':// Syntax highlighted code
+      cx.fillStyle='#1E1E2E';cx.fillRect(sx,sy,sw,sh);
+      const cLines=[
+        [{c:'#C678DD',t:'func'},{c:'#61AFEF',t:' run'}],
+        [{c:'#98C379',t:'  "ok"'}],
+        [{c:'#E06C75',t:'  if'},{c:'#ABB2BF',t:' err'}],
+        [{c:'#56B6C2',t:'  ret'},{c:'#D19A66',t:' 42'}],
+        [{c:'#C678DD',t:'}'}],
+      ];
+      cx.font='6px monospace';cx.textAlign='left';
+      cLines.forEach((parts,i)=>{
+        let lx=sx+2;
+        parts.forEach(p=>{cx.fillStyle=p.c;cx.fillText(p.t,lx,sy+7+i*s*1.1);lx+=p.t.length*3.5});
+      });
+      // Line numbers
+      cx.fillStyle='#5C6370';
+      for(let i=0;i<5;i++)cx.fillText(''+(i+1),sx-1,sy+7+i*s*1.1);
+      break;
+    case 'finder':// Search results
+      cx.fillStyle='#1A1A2A';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#44AA88';cx.font='6px monospace';cx.textAlign='left';
+      cx.fillText('? grep',sx+2,sy+7);
+      cx.fillStyle='#888';
+      ['src/a.ts:12','lib/b.js:45','pkg/c.rs:89'].forEach((l,i)=>{
+        cx.fillText(l,sx+2,sy+7+(i+1)*s*1.2);
+      });
+      // Match highlight
+      cx.fillStyle='#FFDD4440';
+      cx.fillRect(sx+s*2,sy+s*1.3+((fr>>4)%3)*s*1.2,s*2,s*.8);
+      break;
+    case 'mcp':// Connection graph
+      cx.fillStyle='#0A1A1A';cx.fillRect(sx,sy,sw,sh);
+      // Nodes
+      const nodes=[[.3,.3],[.7,.25],[.5,.6],[.2,.7],[.8,.7]];
+      cx.fillStyle='#44DDAA';
+      nodes.forEach(([nx,ny])=>cx.fillRect(sx+sw*nx-2,sy+sh*ny-2,4,4));
+      // Edges (animated)
+      cx.fillStyle='#44DDAA40';
+      [[0,1],[0,2],[1,2],[2,3],[2,4]].forEach(([a,b])=>{
+        const[ax,ay]=nodes[a],[bx,by]=nodes[b];
+        const prog=((fr*.02+a*.3)%1);
+        cx.fillRect(sx+sw*(ax+(bx-ax)*prog)-1,sy+sh*(ay+(by-ay)*prog)-1,3,3);
+      });
+      break;
+    case 'agent':// Task tree
+      cx.fillStyle='#1A1020';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#AA88FF';cx.font='6px monospace';cx.textAlign='left';
+      cx.fillText('TASKS',sx+2,sy+7);
+      ['#1 run','#2 build','#3 test'].forEach((l,i)=>{
+        cx.fillStyle=i===((fr>>5)%3)?'#FFDD44':'#8866CC';
+        cx.fillText(' '+l,sx+2,sy+14+i*s*1.1);
+      });
+      break;
+    case 'web':// Browser window
+      cx.fillStyle='#FFF';cx.fillRect(sx,sy,sw,sh);
+      // URL bar
+      cx.fillStyle='#E8E8E8';cx.fillRect(sx,sy,sw,s*1.2);
+      cx.fillStyle='#888';cx.font='5px monospace';cx.textAlign='left';
+      cx.fillText('https://',sx+2,sy+s*.9);
+      // Content blocks
+      cx.fillStyle='#EEEEFF';cx.fillRect(sx+s*.3,sy+s*1.8,sw-s*.6,s*1.5);
+      cx.fillStyle='#DDDDEE';cx.fillRect(sx+s*.3,sy+s*3.6,sw*.5,s*1);
+      cx.fillStyle='#CCDDFF';cx.fillRect(sx+s*.3+sw*.55,sy+s*3.6,sw*.35,s*1);
+      break;
+    case 'serena':// Symbol tree
+      cx.fillStyle='#1A1510';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#B8860B';cx.font='6px monospace';cx.textAlign='left';
+      const syms=['class Foo','  fn bar','  fn baz','  val x','impl Tr'];
+      syms.forEach((l,i)=>{
+        cx.fillStyle=i===((fr>>4)%5)?'#FFD080':'#8B6914';
+        cx.fillText(l,sx+2,sy+7+i*s*1);
+      });
+      break;
+    default:// Generic green terminal
+      cx.fillStyle='#114422';cx.fillRect(sx,sy,sw,sh);
+      cx.fillStyle='#44DD66';
+      cx.fillRect(sx+s*.4,sy+s*.5,3.5*s,s*.6);
+      cx.fillRect(sx+s*.4,sy+s*1.8,5*s,s*.6);
+      if(fr%60<35)cx.fillRect(sx+s*3,sy+sh-s*1.5,s*.7,s*.7);
+  }
+  // CRT scanline effect
+  cx.fillStyle='#00000012';
+  for(let i=0;i<sh;i+=2)cx.fillRect(sx,sy+i,sw,1);
+  // Screen glow
+  cx.fillStyle=agentType==='web'?'#FFFFFF08':'#44FF6608';
+  cx.fillRect(sx-1,sy-1,sw+2,sh+2);
+}
+
+const DESKS=[
+  {x:.07,label:'Shell',act:false},{x:.19,label:'Reader',act:false},
+  {x:.31,label:'Editor',act:false},{x:.43,label:'Search',act:false},
+  {x:.55,label:'MCP',act:false},{x:.67,label:'Agent',act:false},
+  {x:.79,label:'Web',act:false},{x:.91,label:'Serena',act:false},
+];
+
+// ── AGENTS ──
+class Ag{
+  constructor(t,i){this.t=t;this.i=i;this.x=DESKS[i].x+(Math.random()-.5)*.02;this.y=.78;this.tx=this.x;this.ty=this.y;
+    this.d=1;this.st='idle';this.wf=Math.random()*100;this.tk='';this.wt=0;this.di=-1;
+    this.xp=0;this.lv=1;this.pw=100;this.tot=0;
+    // New: mood system for idle variety
+    this.mood=0;this.moodTimer=60+Math.random()*120;
+    // New: completion flash
+    this.compFx=0}
+  go(tk){
+    this.di=this.i;const d=DESKS[this.i];
+    this.tx=d.x+(Math.random()-.5)*.02;this.ty=.48;
+    this.st='walk';this.tk=tk;this.wt=60+Math.random()*80;
+    this.tot++;this.pw=Math.max(0,this.pw-5);
+    this.mood=0;// Reset mood when working
+    this.xp+=8+Math.floor(Math.random()*7);
+    if(this.xp>=this.lv*80){this.xp-=this.lv*80;this.lv++;
+      narr(C[this.t].l+' Lv.'+this.lv+' 레벨업!',this.t);
+      spawnP(d.x*cW(),cH()*.55,8)}
+    DESKS[this.i].act=true;
+  }
+  up(){
+    if(this.compFx>0)this.compFx--;
+    if(this.st==='walk'){
+      const dx=this.tx-this.x,dy=this.ty-this.y;
+      if(Math.hypot(dx,dy)>.004){this.x+=dx*.06;this.y+=dy*.06;this.d=dx>0?1:-1;this.wf++}
+      else{this.st=this.di>=0?'work':'idle';this.d=1}
+    }else if(this.st==='work'){
+      this.wt--;
+      if(this.wt<=0){
+        DESKS[this.i].act=false;this.tk='';
+        // Completion effect!
+        this.compFx=20;
+        spawnP(DESKS[this.i].x*cW(),cH()*.55,5);
+        this.tx=DESKS[this.i].x+(Math.random()-.5)*.03;this.ty=.78+Math.random()*.03;
+        this.st='walk';this.di=-1;this.pw=Math.min(100,this.pw+3)}
+    }else{
+      this.pw=Math.min(100,this.pw+.02);
+      // Mood cycling for idle variety
+      this.moodTimer--;
+      if(this.moodTimer<=0){
+        this.mood=(this.mood+1)%5;// 0=normal,1=stretch,2=lookAround,3=coffee,4=drowsy
+        this.moodTimer=80+Math.random()*160;
+      }
+      if(Math.random()<.003){this.tx=DESKS[this.i].x+(Math.random()-.5)*.04;
+        this.ty=Math.max(.73,Math.min(.84,this.y+(Math.random()-.5)*.03));this.st='walk'}
+    }
+  }
+  draw(w,h){drawCh(this.x*w,this.y*h,this.t,this.wf,this.d,this.st==='work',this.st==='work'?this.tk:'',this)}
+}
+const AT=['bash','reader','writer','finder','mcp','agent','web','serena'];
+let agents=AT.map((t,i)=>new Ag(t,i));
+
+// Tool → Agent mapping (each agent has their own desk at index i)
+function t2a(t){if(!t)return 5;if(t==='Bash')return 0;if(t==='Read')return 1;
+  if('Write Edit NotebookEdit'.includes(t))return 2;if(t==='Grep'||t==='Glob')return 3;
+  if(t.startsWith('mcp__serena'))return 7;if(t.startsWith('mcp__'))return 4;
+  if(t==='WebSearch'||t==='WebFetch')return 6;return 5}
+
+function desc(e){
+  const t=e.tool||'',s=e.summary||e.cmd||'';
+  if(t==='Bash'){const c=e.cmd||s;if(c.includes('git'))return'Git';if(c.includes('npm')||c.includes('node'))return'Node';if(c.includes('curl'))return'네트워크';return'명령실행'}
+  if(t==='Read'||t==='Write'||t==='Edit'){const f=(e.path||s).split(/[/\\]/).pop();return f?f.slice(0,14):tk(t)}
+  if(t==='Grep')return'패턴검색';if(t==='Glob')return'파일탐색';
+  if(t==='WebSearch')return'웹검색';if(t==='WebFetch')return'페이지수집';
+  if(t==='Task')return'에이전트파견';if(t.startsWith('mcp__serena'))return'Serena';
+  if(t.startsWith('mcp__'))return'MCP';return tk(t);
+}
+
+// ── PARTICLES (enhanced: sparkles, stars, confetti) ──
+let pts=[];
+function spawnP(x,y,n,type){
+  if(pts.length>60)return;
+  const colors=type==='error'?['#FF3300','#FF6644','#CC0000']:
+    type==='success'?['#44DD66','#88FF88','#22AA44']:
+    ['#FFD080','#FFAA22','#FF6644','#FFDD44','#88BBFF'];
+  for(let i=0;i<Math.min(n,8);i++){
+    const shape=Math.random()>.7?'star':'rect';
+    pts.push({x:x+(Math.random()-.5)*10,y:y+(Math.random()-.5)*5,
+      vx:(Math.random()-.5)*4,vy:-Math.random()*4-1,
+      l:30+Math.random()*20,c:colors[i%colors.length],
+      z:2+Math.random()*3,shape,rot:Math.random()*6.28,rv:(Math.random()-.5)*.2});
+  }
+}
+function drawPts(){pts=pts.filter(p=>{
+  p.x+=p.vx;p.y+=p.vy;p.vy+=.07;p.vx*=.99;p.l--;p.rot+=p.rv;
+  if(p.l<=0)return false;
+  cx.globalAlpha=Math.min(p.l/25,1);cx.fillStyle=p.c;
+  if(p.shape==='star'){
+    // Star shape via rotated rects
+    cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
+    cx.fillRect(-p.z/2,-p.z*.15,p.z,p.z*.3);
+    cx.fillRect(-p.z*.15,-p.z/2,p.z*.3,p.z);
+    cx.restore();
+  }else{
+    cx.fillRect(p.x,p.y,p.z,p.z);
+  }
+  cx.globalAlpha=1;return true;
+})}
+
+// ── NARRATION ──
+let nFull='',nIdx=0,nTxt='',nTm=null;
+function narr(t,at){
+  document.getElementById('nf').textContent=at?(C[at]?.l||'SYS'):'SYS';
+  nFull=t;nIdx=0;nTxt='';clearInterval(nTm);
+  nTm=setInterval(()=>{if(nIdx<nFull.length){nTxt+=nFull[nIdx++];document.getElementById('nt').textContent=nTxt}else clearInterval(nTm)},35);
+}
+const NR={
+  Bash:['Shell: 터미널 명령 실행 중...','Shell: 시스템 호출 처리 중','Shell: 프로세스 실행 대기','Shell: 명령 결과 수집 중'],
+  Read:['Reader: 소스코드 분석 시작','Reader: 파일 내용 스캔 중','Reader: 구조 파악 중...','Reader: 의존성 추적 중'],
+  Write:['Editor: 새 파일 생성 중','Editor: 코드 작성 시작','Editor: 보일러플레이트 생성'],
+  Edit:['Editor: 코드 패치 적용 중','Editor: 리팩토링 수행','Editor: 심볼 교체 중','Editor: diff 계산 중'],
+  Grep:['Search: 정규식 패턴 매칭 중','Search: 코드베이스 스캔 중','Search: 일치 결과 수집 중'],
+  Glob:['Search: 파일 시스템 탐색 중','Search: 패턴 매칭 파일 검색'],
+  WebSearch:['Web: 검색 엔진 쿼리 실행','Web: 최신 정보 수집 중','Web: 검색 결과 분석 중'],
+  WebFetch:['Web: 웹 페이지 다운로드 중','Web: HTML 파싱 처리 중','Web: 콘텐츠 추출 중'],
+  Task:['Agent: 서브에이전트 디스패치!','Agent: 병렬 작업 분배 중','Agent: 에이전트 태스크 할당'],
+  deny:['⚠ 보안: 위험 명령 차단됨!','⚠ 보안: 정책 위반 감지','⚠ 보안: 접근 거부됨'],
+  idle:['시스템 모니터링 대기 중...','모든 에이전트 대기 상태','다음 작업 대기 중...','시스템 정상 운영 중 ✓']};
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+
+// ── RENDER (30fps throttle) ──
+let lastRender=0,hudPrev=0,hudWait=30,hudShow=0;
+function render(ts){
+  requestAnimationFrame(render);
+  if(ts-lastRender<33)return;
+  lastRender=ts;
+  const w=cW(),h=cH();
+  if(!bg||bgW!==w||bgH!==h)buildBg(w,h);
+  // Draw cached background at full resolution
+  cx.drawImage(bg,0,0,bg.width,bg.height,0,0,w,h);
+  const fy=h*.55;
+  // Active screens only (agent-type-specific)
+  DESKS.forEach((d,i)=>{if(d.act)drawActiveScreen(d.x*w,fy,AT[i])});
+  // Agents
+  agents.forEach(a=>a.up());
+  agents.sort((a,b)=>a.y-b.y);
+  agents.forEach(a=>a.draw(w,h));
+  drawPts();
+  // HUD (debounced - only update after 30 frames stable)
+  let ac=0;agents.forEach(a=>{if(a.st==='work')ac++});
+  if(ac!==hudPrev){hudWait=0;hudPrev=ac}else if(hudWait<31)hudWait++;
+  if(hudWait>=30)hudShow=hudPrev;
+  const hudW=serverMetrics&&serverMetrics.opsPerMin?210:130;
+  cx.fillStyle='#000000AA';cx.fillRect(4,4,hudW,26);
+  cx.fillStyle='#1A1A3A';cx.fillRect(5,5,hudW-2,24);
+  cx.fillStyle='#8B6914';cx.fillRect(5,5,hudW-2,2);cx.fillRect(5,27,hudW-2,2);
+  cx.font='bold 14px "Malgun Gothic",sans-serif';cx.textAlign='left';
+  if(hudShow>0){
+    cx.fillStyle='#FF6644';cx.fillRect(10,11,14,14);
+    cx.fillStyle='#FFD080';cx.fillText(hudShow+'명 개발 중',28,23);
+  }else{
+    cx.fillStyle='#88AACC';cx.fillText('대기 중',10,23);
+  }
+  if(serverMetrics&&serverMetrics.opsPerMin){
+    cx.fillStyle='#6688AA';cx.fillRect(134,10,1,16);
+    cx.fillStyle='#88BBDD';cx.font='bold 12px "Malgun Gothic",sans-serif';
+    cx.fillText(serverMetrics.opsPerMin+' ops/m',140,23);
+  }
+  fr++;
+  // Double buffer: copy offscreen buffer to visible canvas in one shot
+  mainCx.drawImage(buf,0,0);
+}
+requestAnimationFrame(render);
+
+// ── SSE ──
+let es=null;
+function conn(){if(es)es.close();try{es=new EventSource(SSE);
+  es.onopen=()=>{connected=true;document.getElementById('cs').className='cn on';
+    document.getElementById('cs').textContent='실시간';document.getElementById('lv').className='live on';
+    narr('서버 연결! 실시간 모니터링 시작.')};
+  es.onmessage=e=>{try{const d=JSON.parse(e.data);entries.push(d);lastET=Date.now();onE(d);sUI()}catch{}};
+  es.onerror=()=>{connected=false;document.getElementById('cs').className='cn off';
+    document.getElementById('cs').textContent='재연결…';document.getElementById('lv').className='live off';
+    es.close();setTimeout(conn,5000)};
+}catch{setTimeout(conn,5000)}}
+
+function onE(e){
+  const ai=t2a(e.tool),ag=agents.find(a=>a.i===ai),ds=desc(e);
+  if(ag&&ag.st!=='work'){ag.go(ds);spawnP(DESKS[ag.i].x*cW(),cH()*.55,4)}
+  else if(ag&&ag.st==='work'){ag.tk=ds;ag.wt=Math.max(ag.wt,40)}
+  if(e.decision==='deny'){
+    narr(pick(NR.deny),'agent');
+    spawnP(cW()/2,cH()*.3,6,'error');
+  }else if(e.err){
+    spawnP(DESKS[ai].x*cW(),cH()*.5,4,'error');
+    const p=NR[e.tool]||NR.idle;narr(pick(p),AT[ai]);
+  }else{
+    const p=NR[e.tool]||NR.idle;narr(pick(p),AT[ai]);
+  }
+}
+
+// ── UI (throttled) ──
+let uiD=false,uiT=null;
+function sUI(){if(!uiD){uiD=true;if(!uiT)uiT=setTimeout(()=>{uiT=null;uiD=false;uUI()},600)}}
+function uUI(){
+  const d=entries,al=d.reduce((a,e)=>a+(e.decision==='allow'?1:0),0),
+    dn=d.reduce((a,e)=>a+(e.decision==='deny'?1:0),0),
+    tl=new Set(d.map(e=>e.tool).filter(Boolean)).size;
+  document.getElementById('sT').textContent=d.length;
+  document.getElementById('sA').textContent=al;
+  document.getElementById('sD').textContent=dn;
+  document.getElementById('sL').textContent=tl;
+  if(serverMetrics)document.getElementById('sO').textContent=serverMetrics.opsPerMin||'-';
+  if(d.length>=2){const m=Math.floor((new Date(d[d.length-1].ts)-new Date(d[0].ts))/6e4);
+    document.getElementById('sM').textContent=m>60?`${(m/60)|0}h${m%60}m`:`${m}분`}
+  document.getElementById('lc').textContent=d.length;
+  const mcEl=document.getElementById('mc');
+  if(mcEl&&serverMetrics)mcEl.textContent=`${serverMetrics.opsPerMin||0}/m`;
+  rLog(d);rStat(d);rAg();
+}
+
+function rLog(data){
+  const el=document.getElementById('lb');
+  el.innerHTML=data.slice(-25).reverse().map(e=>{
+    const cl=e.decision==='deny'?'er':e.err?'er':e.decision==='allow'?'ok':e.level==='warn'?'wr':'in';
+    const tm=(e.ts||'').slice(11,19), tl=tk(e.tool);
+    const gBadge=e.group?`<span style="color:#8B7860;font-size:8px;margin-right:2px">${e.group}</span>`:'';
+    let dt='';if(e.err)dt='⚠ '+e.err.slice(0,35);
+    else if(e.cmd)dt=e.cmd.slice(0,40);else if(e.path)dt=e.path.split(/[/\\]/).slice(-2).join('/');
+    else if(e.summary)dt=e.summary.slice(0,40);else dt=desc(e);
+    const seqTag=e.seq?`<span style="color:#AAA;font-size:8px;margin-right:2px">#${e.seq}</span>`:'';
+    return`<div class="le ${cl}">${seqTag}<span class="t">${tm}</span><span class="n">${tl}</span>${gBadge}<span class="m">${esc(dt)}</span></div>`
+  }).join('');
+}
+
+function rStat(data){
+  const el=document.getElementById('sb');
+  const m=serverMetrics;
+  // Fallback to client-side if server metrics not yet loaded
+  let successRate=100,blockRate=0,opsMin='0',errs=0,blocks=0,total=data.length,sessions=0,durMin=0;
+  const grp={'file-io':0,shell:0,search:0,external:0,agent:0,edit:0};
+  if(m&&m.total>0){
+    successRate=m.successRate||100;blockRate=m.blockRate||0;
+    opsMin=m.opsPerMin||0;errs=m.errorCount||0;blocks=Math.round(m.blockRate*m.total/100)||0;
+    total=m.total;sessions=m.sessions||0;durMin=m.durationMin||0;
+    if(m.groups)Object.entries(m.groups).forEach(([k,v])=>{if(grp[k]!==undefined)grp[k]=v.count||v});
+  }else{
+    data.forEach(e=>{
+      if(!e.tool)return;
+      if('Read Write Edit NotebookEdit'.includes(e.tool))grp['file-io']++;
+      else if(e.tool==='Bash')grp.shell++;
+      else if(e.tool==='Grep'||e.tool==='Glob')grp.search++;
+      else if(e.tool.startsWith('mcp__')||e.tool==='WebSearch'||e.tool==='WebFetch')grp.external++;
+      else if('Task Skill TaskCreate TaskUpdate'.includes(e.tool))grp.agent++;
+      if(e.ok===false)errs++;if(e.decision==='deny')blocks++;
+    });
+    successRate=total>0?((total-errs)/total*100)|0:100;
+    blockRate=total>0?(blocks/total*100)|0:0;
+    opsMin=total>=2?(total/Math.max(1,(new Date(data[data.length-1].ts)-new Date(data[0].ts))/6e4)).toFixed(1):'0';
+  }
+
+  let h='<div style="font-size:10px;color:#5A4008;font-weight:bold;margin:2px 0 3px">시스템 메트릭</div>';
+  h+=`<div class="sb"><span class="n">성공률</span><div class="b"><div class="f" style="width:${successRate}%;background:${successRate>90?'#44AA44':'#CC3300'}"></div></div><span class="v">${Math.round(successRate)}%</span></div>`;
+  h+=`<div class="sb"><span class="n">차단률</span><div class="b"><div class="f" style="width:${Math.min(blockRate*10,100)}%;background:#CC3300"></div></div><span class="v">${Math.round(blockRate)}%</span></div>`;
+  h+=`<div class="sb"><span class="n">속도</span><div class="b"><div class="f" style="width:${Math.min(opsMin*5,100)}%;background:#6666CC"></div></div><span class="v">${opsMin}/m</span></div>`;
+
+  // Group distribution
+  h+='<div style="font-size:10px;color:#5A4008;font-weight:bold;margin:4px 0 3px">도구 그룹</div>';
+  const gMetrics=[['파일I/O',grp['file-io']+grp.edit,'#44AA44'],['셸',grp.shell,'#FF6644'],['검색',grp.search,'#6666CC'],['외부',grp.external,'#CCAA22'],['에이전트',grp.agent,'#AA88FF']];
+  const gmx=Math.max(1,...gMetrics.map(m=>m[1]));
+  gMetrics.forEach(([n,v,co])=>{
+    h+=`<div class="sb"><span class="n">${n}</span><div class="b"><div class="f" style="width:${(v/gmx*100)|0}%;background:${co}"></div></div><span class="v">${v}</span></div>`;
+  });
+
+  // Mini timeline chart
+  if(timeline.length>1){
+    h+='<div style="font-size:10px;color:#5A4008;font-weight:bold;margin:4px 0 2px">타임라인</div>';
+    h+='<div style="display:flex;align-items:flex-end;gap:1px;height:28px;background:#333;border:1px solid #222;border-radius:2px;padding:1px;overflow:hidden">';
+    const tmx=Math.max(1,...timeline.map(t=>t.count));
+    timeline.slice(-20).forEach(t=>{
+      const pct=Math.max(2,(t.count/tmx*100)|0);
+      const col=t.errors>0?'#CC3300':'#44CC44';
+      h+=`<div style="flex:1;min-width:3px;height:${pct}%;background:${col};border-radius:1px" title="${t.ts}: ${t.count}건${t.errors?' ('+t.errors+'err)':''}"></div>`;
+    });
+    h+='</div>';
+  }
+
+  // Summary
+  h+=`<div style="font-size:9px;color:#8B7860;margin-top:3px">총${total} | err${errs} | blk${blocks}${sessions?' | '+sessions+'세션':''}${durMin?' | '+durMin+'분':''}</div>`;
+  el.innerHTML=h;
+}
+
+function rAg(){
+  document.getElementById('ab').innerHTML=agents.map(a=>{
+    const c=C[a.t],
+      txt=a.tk||(a.st==='work'?'처리 중':a.st==='walk'?'이동':'대기'),
+      act=a.st==='work'?' on':'',pp=Math.max(0,Math.min(100,a.pw)),
+      st=a.st==='work'?'RUN':a.st==='walk'?'MOV':'IDLE',
+      stC=a.st==='work'?'#CC3300':a.st==='walk'?'#CCAA22':'#888';
+    return`<div class="ac${act}"><div class="fc" style="background:${a.st==='work'?c.s:'#FFF0D0'};color:#FFF;font-size:10px;font-weight:bold;font-family:monospace">${c.e}</div><div class="i"><div class="nm">${c.l} <span class="rl">${c.r} | ${a.tot}ops</span></div><div class="tk"><span style="color:${stC};font-weight:bold;font-size:9px">[${st}]</span> ${txt}</div><div class="pw"><div class="pf" style="width:${pp}%;background:${pp>30?'#44CC44':'#CC0000'}"></div></div></div></div>`
+  }).join('');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+setInterval(()=>{const n=new Date();document.getElementById('ck').textContent=
+  `${n.getFullYear()}년${n.getMonth()+1}월${n.getDate()}일 ${n.toLocaleTimeString('ko-KR',{hour12:false})}`},1000);
+setInterval(()=>{if(Date.now()-lastET>12000)narr(pick(NR.idle))},8000);
+
+// ── Server Metrics Polling (5s) ──
+async function fetchMetrics(){
+  try{
+    const [mr,tr]=await Promise.all([fetch(MAPI),fetch(TAPI+(_T?'&':'?')+'limit=30')]);
+    if(mr.ok)serverMetrics=await mr.json();
+    if(tr.ok)timeline=await tr.json();
+  }catch{}
+}
+setInterval(fetchMetrics,5000);
+fetchMetrics();
+
+conn();
+
+// ── Mobile Tab Switching ──
+document.querySelectorAll('.tab-bar .tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab-bar .tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.bottom .pnl').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const panels = document.querySelectorAll('.bottom .pnl');
+    const idx = parseInt(tab.dataset.panel);
+    if (panels[idx]) panels[idx].classList.add('active');
+  });
+});
+
+// ── Responsive P (pixel size) on resize ──
+window.addEventListener('resize', () => {
+  // P is const, but we can update canvas scaling behavior through resize()
+  // The P variable is already set at init based on innerWidth
+});
+
+// ── Canvas Touch Support ──
+cv.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  const rect = cv.getBoundingClientRect();
+  const tx = touch.clientX - rect.left;
+  const ty = touch.clientY - rect.top;
+  // Find tapped agent (check proximity to desk positions)
+  const scaleX = cW() / rect.width;
+  const scaleY = cH() / rect.height;
+  const cx2 = tx * scaleX, cy2 = ty * scaleY;
+  const hitAgent = agents.find(a => {
+    const dk = DESKS[a.i];
+    if (!dk) return false;
+    const dx = dk.x * cW(), dy = cH() * 0.55;
+    return Math.abs(cx2 - dx) < 40 && Math.abs(cy2 - dy) < 50;
+  });
+  if (hitAgent) {
+    const c = C[hitAgent.t];
+    const info = `${c.l} (${c.r}) - ${hitAgent.st === 'work' ? '작업 중' : hitAgent.st === 'walk' ? '이동' : '대기'} [${hitAgent.tot}ops]`;
+    narr(info, AT[hitAgent.i]);
+  }
+}, { passive: false });
+
+// ── Share / QR Modal ──
+document.getElementById('shareBtn').addEventListener('click', async () => {
+  const modal = document.getElementById('qrModal');
+  const qrImg = document.getElementById('qrImg');
+  const qrUrl = document.getElementById('qrUrl');
+  try {
+    const resp = await fetch(_u('/api/share-info'));
+    if (resp.ok) {
+      const info = await resp.json();
+      const accessUrl = info.lan || info.local;
+      qrUrl.textContent = accessUrl;
+      qrImg.src = _u('/api/qr');
+      modal.classList.add('show');
+    }
+  } catch {
+    // Fallback: show current URL
+    const accessUrl = window.location.href;
+    qrUrl.textContent = accessUrl;
+    qrImg.src = _u('/api/qr');
+    modal.classList.add('show');
+  }
+});
+document.getElementById('qrClose').addEventListener('click', () => {
+  document.getElementById('qrModal').classList.remove('show');
+});
+document.getElementById('qrModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('show');
+});
+
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];
+  if(f){const r=new FileReader();r.onload=v=>{entries=v.target.result.trim().split('\n').filter(Boolean).map(l=>{try{return JSON.parse(l)}catch{return null}}).filter(Boolean);entries.forEach(e=>onE(e));sUI();narr(`로그 로드! ${entries.length}건`)};r.readAsText(f)}});
+</script>
+</body>
+</html>

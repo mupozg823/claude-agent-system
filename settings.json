@@ -1,0 +1,111 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Edit",
+      "Write",
+      "Read",
+      "Grep",
+      "Glob",
+      "WebSearch",
+      "WebFetch",
+      "NotebookEdit",
+      "Task",
+      "Skill",
+      "mcp__*"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(format *)",
+      "Bash(del /s /q C:\\Windows*)",
+      "Bash(git push --force origin main*)",
+      "Bash(git push --force origin master*)",
+      "Bash(git push -f origin main*)",
+      "Bash(git push -f origin master*)",
+      "Bash(git reset --hard*)",
+      "Bash(npm publish*)",
+      "Bash(shutdown*)",
+      "Bash(reboot*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/session-init.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/skill-suggest.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/smart-approve.js\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/smart-approve.js\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/smart-approve.js\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/audit-log.js\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/stop-check.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

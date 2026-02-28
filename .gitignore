@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Sensitive files
+.credentials.json
+.supabase-config.json
+gateway.pid
+
+# Large/transient data
+debug/
+file-history/
+shell-snapshots/
+cache/
+telemetry/
+backups/
+downloads/
+projects/
+session-env/
+plans/
+tasks/
+todos/
+queue/
+orchestrator/
+
+# Claude internal
+history.jsonl
+*.jsonl
+tmp-*.js
+mcp-servers/
+
+# Logs (keep md logs, exclude audit jsonl)
+logs/audit/
+
+# Remote dash (separate repo: github.com/mupozg823/agent-dashboard-remote)
+remote-dash/
+
+# Plugins embedded repos
+plugins/marketplaces/
+
+# Session marker files
+logs/.last-session-*
+
+# Settings with permissions (may contain local paths)
+settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

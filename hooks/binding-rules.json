@@ -1,0 +1,68 @@
+{
+  "version": "1.0",
+  "description": "OpenClaw-style binding rules: source → handler routing",
+  "rules": [
+    {
+      "id": "skill-review",
+      "match": { "source": "webhook", "pattern": "^/?review\\b" },
+      "handler": "skill-router",
+      "priority": 10,
+      "description": "Route review commands through skill router"
+    },
+    {
+      "id": "skill-fix",
+      "match": { "source": "webhook", "pattern": "^/?fix-all\\b" },
+      "handler": "skill-router",
+      "priority": 10,
+      "description": "Route fix-all commands through skill router"
+    },
+    {
+      "id": "skill-deploy",
+      "match": { "source": "webhook", "pattern": "^/?deploy\\b" },
+      "handler": "skill-router",
+      "priority": 10,
+      "description": "Route deploy commands through skill router"
+    },
+    {
+      "id": "skill-generic",
+      "match": { "source": "webhook", "pattern": "^/[a-z]" },
+      "handler": "skill-router",
+      "priority": 8,
+      "description": "Route slash-commands through skill router"
+    },
+    {
+      "id": "orchestrate",
+      "match": { "pattern": "^/?orchestrate\\s" },
+      "handler": "orchestrate",
+      "priority": 15,
+      "description": "Always route orchestrate to orchestrator"
+    },
+    {
+      "id": "steer",
+      "match": { "event": "steer" },
+      "handler": "steer",
+      "priority": 20,
+      "description": "Steer commands bypass queue"
+    },
+    {
+      "id": "cron-default",
+      "match": { "source": "cron" },
+      "handler": "default",
+      "priority": 5,
+      "description": "Cron jobs use default executor"
+    },
+    {
+      "id": "catch-all",
+      "match": { "event": "command" },
+      "handler": "lane-queue",
+      "priority": 1,
+      "description": "Default: enqueue to lane"
+    }
+  ],
+  "rateLimits": {
+    "orchestrate": { "interval": 300, "burst": 1 },
+    "status-check": { "interval": 5, "burst": 3 },
+    "steer": { "interval": 2, "burst": 5 },
+    "default": { "interval": 30, "burst": 3 }
+  }
+}
