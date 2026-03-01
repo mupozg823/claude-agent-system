@@ -23,6 +23,7 @@ export async function initPixi(){
       S.L[name]=new PIXI.Container();S.L[name].label=name;S.pixiApp.stage.addChild(S.L[name]);
     });
     S.bgSprite=new PIXI.Sprite();S.L.bg.addChild(S.bgSprite);
+    S.L.agents.sortableChildren=true;
     for(let i=0;i<8;i++){
       const ac=document.createElement('canvas');ac.width=80;ac.height=120;S.agentCanvases.push(ac);
       const sp=new PIXI.Sprite();sp.anchor.set(0.5,0.5);S.agentSprites.push(sp);S.L.agents.addChild(sp);

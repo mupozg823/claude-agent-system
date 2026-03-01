@@ -1,5 +1,5 @@
 // ── utils.js ── Pure utility functions
-import { S, TK, SEASONS, SEASON_COLORS } from './state.js';
+import { S, TK, SEASONS, SEASON_COLORS, AGENT_TRAITS } from './state.js';
 
 export function tk(t) {
   if (!t) return '대기';
@@ -19,10 +19,10 @@ export function t2a(t) {
   if (!t) return 5;
   if (t === 'Bash') return 0;
   if (t === 'Read') return 1;
-  if ('Write Edit NotebookEdit'.includes(t)) return 2;
+  if (['Write', 'Edit', 'NotebookEdit'].includes(t)) return 2;
   if (t === 'Grep' || t === 'Glob') return 3;
   if (t === 'WebSearch' || t === 'WebFetch') return 6;
-  if ('Task Skill TaskCreate TaskUpdate TaskList TaskGet TaskStop TaskOutput AskUserQuestion EnterPlanMode ExitPlanMode'.includes(t)) return 5;
+  if (['Task', 'Skill', 'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TaskStop', 'TaskOutput', 'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode'].includes(t)) return 5;
   if (t === 'ToolSearch') return 3;
   if (t.startsWith('mcp__serena')) return 7;
   if (t.startsWith('mcp__grep')) return 3;
@@ -47,7 +47,7 @@ export function desc(e) {
   if (t === 'Task') return '서브에이전트'; if (t === 'Skill') return '스킬실행';
   if (t === 'ToolSearch') return '도구탐색'; if (t === 'AskUserQuestion') return '사용자질의';
   if (t === 'EnterPlanMode') return '계획수립'; if (t === 'ExitPlanMode') return '계획완료';
-  if ('TaskCreate TaskUpdate TaskList TaskGet'.includes(t)) return '태스크관리';
+  if (['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet'].includes(t)) return '태스크관리';
   if (t.startsWith('mcp__serena')) return 'Serena:' + t.split('__').pop().slice(0, 10);
   if (t.startsWith('mcp__grep')) return '코드검색(외부)';
   if (t.startsWith('mcp__context7')) return '문서조회';
@@ -57,6 +57,12 @@ export function desc(e) {
   if (t.startsWith('mcp__claude_ai_Notion')) return 'Notion';
   if (t.startsWith('mcp__')) return 'MCP:' + t.split('__')[1];
   return tk(t);
+}
+
+// ── Agent traits lookup (shared by agents.js and ui.js) ──
+export function getAgentTraits(type, lv) {
+  const traits = AGENT_TRAITS[type] || [];
+  return traits.filter(t => lv >= t.lv);
 }
 
 export function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
@@ -73,18 +79,23 @@ export function toolGroup(t) {
   return 'other';
 }
 
+// Cached: recalculates only when game-time bucket changes (every 2 real seconds)
+let _calCache = null, _calBucket = -1;
 export function getGameCalendar() {
   const elapsed = (Date.now() - S.SESSION_START) / 1000;
   const gameMins = Math.floor(elapsed / 2);
+  if (gameMins === _calBucket && _calCache) return _calCache;
+  _calBucket = gameMins;
   const gameDay = Math.floor(gameMins / 24) % 30 + 1;
   const gameMonth = Math.floor(gameMins / 24 / 30) % 12 + 1;
   const gameYear = Math.floor(gameMins / 24 / 30 / 12) + 1;
   const seasonIdx = Math.floor((gameMonth - 1) / 3);
-  return {
+  _calCache = {
     year: gameYear, month: gameMonth, day: gameDay,
     season: SEASONS[seasonIdx], seasonColor: SEASON_COLORS[seasonIdx],
     label: `Y${gameYear} ${SEASONS[seasonIdx]} ${gameMonth}월 ${gameDay}일`,
   };
+  return _calCache;
 }
 
 export function getDayPhase() {
@@ -95,15 +106,21 @@ export function getDayPhase() {
   return 'night';
 }
 
+// Cached: recalculates at most once per second
+let _weatherCache = 'sunny', _weatherTs = 0;
 export function getWeather() {
-  if (S.entries.length < 5) return 'sunny';
+  const now = Date.now();
+  if (now - _weatherTs < 1000) return _weatherCache;
+  _weatherTs = now;
+  if (S.entries.length < 5) { _weatherCache = 'sunny'; return _weatherCache; }
   const recent = S.entries.slice(-20);
   const errRate = recent.filter(e => e.err || e.decision === 'deny').length / recent.length;
   const intensity = getActivityIntensity();
-  if (errRate > .3) return 'rain';
-  if (errRate > .15) return 'cloudy';
-  if (intensity > .6) return 'active';
-  return 'sunny';
+  if (errRate > .3) _weatherCache = 'rain';
+  else if (errRate > .15) _weatherCache = 'cloudy';
+  else if (intensity > .6) _weatherCache = 'active';
+  else _weatherCache = 'sunny';
+  return _weatherCache;
 }
 
 export function trackActivity() {

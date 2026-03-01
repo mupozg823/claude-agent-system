@@ -1,14 +1,10 @@
 // ── agents.js ── Agent state machine (Ag class) and agents array
-import { S, C, DESKS, AGENT_FLOOR, AT, AGENT_TRAITS } from './state.js';
+import { S, C, DESKS, AGENT_FLOOR, AT } from './state.js';
 import { spawnP, spawnFloatingText, cW, cH, drawCh } from './renderer-views.js';
 import { narr, toast } from './ui.js';
-import { getActivityIntensity } from './utils.js';
+import { getActivityIntensity, getAgentTraits } from './utils.js';
 
-// ── Trait lookup ──
-export function getAgentTraits(type, lv) {
-  const traits = AGENT_TRAITS[type] || [];
-  return traits.filter(t => lv >= t.lv);
-}
+export { getAgentTraits };
 
 // ── Agent class (Kairosoft-style state machine) ──
 export class Ag {

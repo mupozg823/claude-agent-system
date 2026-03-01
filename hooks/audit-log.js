@@ -12,7 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { DIRS, auditFile: _auditFile } = require('./lib/utils');
+const { DIRS, auditFile: _auditFile, isTokenOverflow } = require('./lib/utils');
 
 const AUDIT_DIR = DIRS.audit;
 const auditFile = _auditFile;
@@ -85,23 +85,7 @@ function extractError(response) {
   return null;
 }
 
-// 토큰 초과 감지 (hot path - avoid JSON.stringify on large responses)
-const TOKEN_OVERFLOW_PATTERNS = [
-  /output token (limit|maximum)/i,
-  /exceeded.*\d+.*token/i,
-  /response.*cut off/i,
-  /token_limit_exceeded/i,
-  /토큰\s?초과/,
-];
-function isTokenOverflow(val) {
-  if (!val) return false;
-  if (typeof val === 'string') return TOKEN_OVERFLOW_PATTERNS.some(p => p.test(val));
-  // Check only string fields at top level instead of serializing entire object
-  for (const k of ['error', 'message', 'stderr', 'result']) {
-    if (typeof val[k] === 'string' && TOKEN_OVERFLOW_PATTERNS.some(p => p.test(val[k]))) return true;
-  }
-  return false;
-}
+// Token overflow detection: imported from lib/utils.js (isTokenOverflow)
 
 async function main() {
   let raw = '';

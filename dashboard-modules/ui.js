@@ -3,13 +3,7 @@ import {
   S, C, FLOORS, AT, DESKS, GROUPS, ACHIEVEMENTS, SEASON_BG,
   AGENT_TRAITS, NR, MCP_SERVERS, SKILL_CATEGORIES,
 } from './state.js';
-import { tk, desc, esc, pick, getGameCalendar, getActivityIntensity } from './utils.js';
-
-// ── Agent traits (inlined to avoid circular import from agents.js) ──
-function getAgentTraits(type, lv) {
-  const traits = AGENT_TRAITS[type] || [];
-  return traits.filter(t => lv >= t.lv);
-}
+import { tk, desc, esc, pick, getGameCalendar, getActivityIntensity, getAgentTraits } from './utils.js';
 
 // ══════════════════════════════════════════════════════
 // ── TOAST SYSTEM ──

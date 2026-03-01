@@ -42,11 +42,7 @@ export function connectWith(url, key, sessionId) {
   S.channel = S.sbClient.channel(channelName, { config: { broadcast: { ack: true, self: false } } });
 
   // Audit Events
-  S.channel.on('broadcast', { event: 'audit' }, ({ payload }) => {
-    S.entries.push(payload); S.lastET = Date.now(); onE(payload); sUI();
-    if (!S.panelOpen || S.currentPanel !== 'log') { S.newLogCount++; updateBadge('logBadge', S.newLogCount); }
-    addSpark('ops', 1); if (payload.err || payload.decision === 'deny') addSpark('errs', 1); else addSpark('errs', 0);
-  });
+  S.channel.on('broadcast', { event: 'audit' }, ({ payload }) => { ingestAuditEntry(payload); });
 
   // Status
   S.channel.on('broadcast', { event: 'status' }, ({ payload }) => {
@@ -167,9 +163,7 @@ export function trySSEFallback() {
         narr('SSE \uB85C\uCEEC \uC11C\uBC84 \uC5F0\uACB0! (port ' + port + ')'); toast('SSE fallback \uC5F0\uACB0', 'ok');
         fetchSSEMetrics(port); if (S.sseMetricsTimer) clearInterval(S.sseMetricsTimer);
         S.sseMetricsTimer = setInterval(() => fetchSSEMetrics(port), 5000); };
-      es.onmessage = (ev) => { try { const d = JSON.parse(ev.data); S.entries.push(d); S.lastET = Date.now(); onE(d); sUI();
-          if (!S.panelOpen || S.currentPanel !== 'log') { S.newLogCount++; updateBadge('logBadge', S.newLogCount); }
-          addSpark('ops', 1); if (d.err || d.decision === 'deny') addSpark('errs', 1); else addSpark('errs', 0); } catch {} };
+      es.onmessage = (ev) => { try { ingestAuditEntry(JSON.parse(ev.data)); } catch {} };
       es.onerror = () => { es.close(); S.sseActive = false; S.sseSource = null;
         if (S.sseMetricsTimer) { clearInterval(S.sseMetricsTimer); S.sseMetricsTimer = null; }
         if (portIdx < SSE_PORTS.length) tryPort();
@@ -201,10 +195,24 @@ export function setAgentOnline(online) {
   else narr('\uC5D0\uC774\uC804\uD2B8 \uB300\uAE30 \uC911...');
 }
 
+// ── Unified audit entry ingestion (Supabase + SSE) ──
+function ingestAuditEntry(entry) {
+  S.entries.push(entry); S.lastET = Date.now(); onE(entry); sUI();
+  if (!S.panelOpen || S.currentPanel !== 'log') { S.newLogCount++; updateBadge('logBadge', S.newLogCount); }
+  addSpark('ops', 1);
+  if (entry.err || entry.decision === 'deny') addSpark('errs', 1); else addSpark('errs', 0);
+}
+
 // ── Event Handler ──
 export function onE(e) {
   // Cap entries to prevent unbounded growth
-  if (S.entries.length > 2000) S.entries.splice(0, S.entries.length - 1500);
+  if (S.entries.length > 2000) {
+    // Recalculate error count after trimming
+    const trimmed = S.entries.length - 1500;
+    S.entries = S.entries.slice(-1500);
+    S._localErrors = Math.max(0, (S._localErrors || 0) - trimmed);
+  }
+  if (e.err || e.decision === 'deny') S._localErrors = (S._localErrors || 0) + 1;
   trackActivity(); trackMcp(e); recordHeat(e.ts);
   const grp = toolGroup(e.tool);
   if (!S.groupStats[grp]) S.groupStats[grp] = { total: 0, errors: 0 };
@@ -218,8 +226,8 @@ export function onE(e) {
   const deskX = DESKS[ag ? ag.i : 0].x * cW(), deskY = cH() * .55;
   if (ag && e.tool) {
     const t = e.tool;
-    if ('Write Edit NotebookEdit'.includes(t)) ag.stats.code = Math.min(99, ag.stats.code + 1);
-    else if ('Read Grep Glob'.includes(t)) { ag.stats.research = Math.min(99, ag.stats.research + 1); const rpGain = Math.floor((3 + Math.random() * 5) * S.eventRPMultiplier); addRP(rpGain, t); if (rpGain >= 6 || S.eventRPMultiplier > 1) spawnFloatingText(deskX, deskY - 20, '+' + rpGain + ' RP', '#44CC88', 10); }
+    if (['Write', 'Edit', 'NotebookEdit'].includes(t)) ag.stats.code = Math.min(99, ag.stats.code + 1);
+    else if (['Read', 'Grep', 'Glob'].includes(t)) { ag.stats.research = Math.min(99, ag.stats.research + 1); const rpGain = Math.floor((3 + Math.random() * 5) * S.eventRPMultiplier); addRP(rpGain, t); if (rpGain >= 6 || S.eventRPMultiplier > 1) spawnFloatingText(deskX, deskY - 20, '+' + rpGain + ' RP', '#44CC88', 10); }
     else if (t.startsWith('mcp__') || t === 'WebSearch' || t === 'WebFetch' || t === 'ToolSearch') { ag.stats.network = Math.min(99, ag.stats.network + 1); const rpGain = Math.floor((2 + Math.random() * 3) * S.eventRPMultiplier); addRP(rpGain, t); }
     else if (t === 'Bash' || t === 'Task' || t === 'Skill') ag.stats.code = Math.min(99, ag.stats.code + 1);
   }

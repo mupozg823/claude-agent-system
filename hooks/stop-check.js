@@ -13,7 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { DIRS, auditFile, appendJsonl, writeCheckpoint: _writeCheckpoint } = require('./lib/utils');
+const { DIRS, auditFile, appendJsonl, writeCheckpoint: _writeCheckpoint, isTokenOverflowText } = require('./lib/utils');
 
 const AUDIT_DIR = DIRS.audit;
 const LOGS_DIR = DIRS.logs;
@@ -132,19 +132,17 @@ async function main() {
   const pendingQueue = checkQueue();
   if (pendingQueue > 0) incScore += Math.ceil(Math.log2(pendingQueue + 1)) * 2;
 
-  // 토큰 초과 감지 (특별 처리)
+  // 토큰 초과 감지 (특별 처리) - lib/utils.js 공유 패턴 사용
   // 실제 초과 vs 기능 설명 구분: 완료 신호가 충분하면 설명 컨텍스트로 판단
-  const tokenOverflowPatterns = ['output token limit', 'output token maximum', 'response was cut off', 'token_limit_exceeded', '토큰 초과', '토큰초과'];
-  const tokenHits = tokenOverflowPatterns.filter(p => msg.includes(p));
-  const isTokenOverflow = tokenHits.length > 0 && compScore < 3;
+  const hasTokenOverflow = isTokenOverflowText(msg) && compScore < 3;
 
-  if (isTokenOverflow) {
+  if (hasTokenOverflow) {
     writeCheckpoint(
       `토큰 초과로 중단 - 파일 분할 필요`,
       [...incHits, 'TOKEN_OVERFLOW'],
       { type: 'token_overflow', guidance: '큰 파일은 300줄 이하로 분할. Agent 도구 사용 시 출력 크기 제한 필요.' }
     );
-    logEvent('stop', { decision: 'block', reason: 'token_overflow', incScore, compScore, tokenHits });
+    logEvent('stop', { decision: 'block', reason: 'token_overflow', incScore, compScore });
     return out(JSON.stringify({
       decision: 'block',
       reason: '토큰 초과 감지! 작업을 더 작은 단위로 분할하세요.'

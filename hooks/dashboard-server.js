@@ -15,7 +15,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const { DIRS, HOME, CLAUDE_DIR, localDate: _localDate } = require('./lib/utils');
+const { DIRS, HOME, CLAUDE_DIR, localDate, auditFile, parseJsonl } = require('./lib/utils');
 
 const PORT = parseInt(process.argv[2]) || 17891;
 const NO_AUTH = process.argv.includes('--no-auth');
@@ -78,21 +78,8 @@ let cachedEntries = [];
 let watcher = null;
 let watchDebounce = null;
 
-function localDate() { return _localDate(); }
-
-function todayFile() {
-  return path.join(AUDIT_DIR, `audit-${localDate()}.jsonl`);
-}
-
 function readAllEntries() {
-  const file = todayFile();
-  if (!fs.existsSync(file)) return [];
-  try {
-    return fs.readFileSync(file, 'utf8').trim().split('\n')
-      .filter(Boolean)
-      .map(l => { try { return JSON.parse(l); } catch { return null; } })
-      .filter(Boolean);
-  } catch { return []; }
+  return parseJsonl(auditFile());
 }
 
 function getStatus() {
@@ -265,7 +252,7 @@ function pushNewEntries() {
 
 // ── fs.watch (real-time) + polling fallback ──
 function startWatcher() {
-  const file = todayFile();
+  const file = auditFile();
   // Ensure audit dir exists
   try { fs.mkdirSync(AUDIT_DIR, { recursive: true }); } catch {}
   // Ensure file exists for watcher
@@ -433,7 +420,7 @@ const server = http.createServer((req, res) => {
       if (MIME[ext]) {
         const filePath = path.resolve(MODULES_DIR, url.pathname.slice(1));
         // Path traversal guard: resolved path must stay within MODULES_DIR
-        if (filePath.startsWith(MODULES_DIR + path.sep) || filePath === MODULES_DIR) {
+        if (filePath.startsWith(MODULES_DIR + path.sep)) {
           try {
             const content = fs.readFileSync(filePath, 'utf8');
             res.writeHead(200, { 'Content-Type': MIME[ext] + '; charset=utf-8' });
@@ -468,7 +455,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`║ Local:   http://localhost:${PORT}${tokenParam}`);
   console.log(`║ LAN:     http://${lanIp}:${PORT}${tokenParam}`);
   console.log(`║ Auth:    ${NO_AUTH ? 'DISABLED (--no-auth)' : 'ENABLED (token)'}`);
-  console.log(`║ Watch:   ${path.basename(todayFile())}`);
+  console.log(`║ Watch:   ${path.basename(auditFile())}`);
   console.log('╚══════════════════════════════════════════════════╝');
   if (!NO_AUTH) {
     console.log(`\nToken: ${TOKEN}`);

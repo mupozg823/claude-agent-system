@@ -96,7 +96,7 @@ export function addRP(amount, source) {
 // ── Satisfaction / Reputation Meter (Kairosoft) ──
 export function updateReputation() {
   const total = S.entries.length || 1;
-  const errors = S.entries.filter(e => e.err || e.decision === 'deny').length;
+  const errors = S._localErrors || 0;
   const errorRate = errors / total;
   const comboFactor = Math.min(S.maxCombo / 20, 1);
   const opsFactor = Math.min((S.serverMetrics && S.serverMetrics.opsPerMin || 0) / 50, 1);

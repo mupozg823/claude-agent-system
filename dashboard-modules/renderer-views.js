@@ -272,7 +272,6 @@ function gameLoop() {
     DESKS.forEach((d, i) => { const onFloor = d.floor === S.currentFloor; if (d.act && S.deskSprites[i] && onFloor) { const dc = S.deskCanvases[i], s = S.P, sx2 = 6.4 * s, sy2 = 5.8 * s; dc.width = Math.ceil(sx2); dc.height = Math.ceil(sy2); const prevBuf = S.buf, prevCx = S.cx; S.buf = dc; S.cx = dc.getContext('2d'); const dsx = d.x * w, sxOff = -dsx + 3.2 * s, syOff = -(fy + 2) + 7.5 * s; S.cx.save(); S.cx.translate(sxOff, syOff); drawActiveScreen(dsx, fy, AT[i]); S.cx.restore(); S.buf = prevBuf; S.cx = prevCx; if (S.deskSprites[i]._tex) S.deskSprites[i]._tex.destroy(true); S.deskSprites[i]._tex = PIXI.Texture.from(dc); S.deskSprites[i].texture = S.deskSprites[i]._tex; S.deskSprites[i].x = d.x * w - 3.2 * s; S.deskSprites[i].y = fy + 2 - 7.5 * s; S.deskSprites[i].visible = true; } else if (S.deskSprites[i]) { S.deskSprites[i].visible = false; } });
     agents.forEach(a => a.up()); agents.sort((a, b) => a.y - b.y); updateFloorBadges();
     agents.forEach((a) => { const onFloor = a.floor === S.currentFloor, ac = S.agentCanvases[a.i]; if (!ac) return; const sp = S.agentSprites[a.i]; if (!onFloor) { if (sp) sp.visible = false; return; } const aw = 80, ah = 120; ac.width = aw; ac.height = ah; const prevBuf = S.buf, prevCx = S.cx, prevDpr = S.dpr; S.buf = ac; S.cx = ac.getContext('2d'); S.dpr = 1; S.cx.clearRect(0, 0, aw, ah); drawCh(aw / 2, ah * .65, a.t, a.wf, a.d, a.st === 'work', a.st === 'work' ? a.tk : '', a); S.buf = prevBuf; S.cx = prevCx; S.dpr = prevDpr; if (sp) { if (sp._tex) sp._tex.destroy(true); sp._tex = PIXI.Texture.from(ac); sp.texture = sp._tex; sp.x = a.x * w; sp.y = a.y * h; sp.zIndex = Math.floor(a.y * 1000); sp.visible = true; } });
-    S.L.agents.sortableChildren = true;
   }
   drawPts(); updateFloatingTexts(); drawHUD(w, h); renderEventPopup(w, h); S.fr++;
 }
@@ -317,9 +316,13 @@ export function toggleBuildingView() {
   S.viewMode = S.viewMode === 'building' ? 'floor' : 'building'; S.bg = null;
 }
 
+// Cached DOM refs + throttled (called from gameLoop but only updates every 15 frames)
+let _fbEls = null, _fbFrame = 0;
 export function updateFloorBadges() {
+  if (++_fbFrame % 15 !== 0) return;
+  if (!_fbEls) _fbEls = [0, 1, 2].map(i => document.getElementById('fb' + i));
   for (let fi = 0; fi < 3; fi++) {
-    const badge = document.getElementById('fb' + fi);
+    const badge = _fbEls[fi];
     if (badge) {
       const wc = S.agents.filter(a => a.floor === fi && a.st === 'work').length;
       badge.textContent = wc > 0 ? wc : '';
