@@ -27,8 +27,11 @@ function logEvent(event, detail) {
   } catch {}
 }
 
-function writeCheckpoint(summary, pendingTasks = []) {
-  try { _writeCheckpoint(summary, pendingTasks, { type: 'stop' }); } catch {}
+function writeCheckpoint(summary, pendingTasks = [], meta = {}) {
+  try {
+    const { ts: _, summary: _s, pendingTasks: _p, ...safeMeta } = meta;
+    _writeCheckpoint(summary, pendingTasks, { type: 'stop', ...safeMeta });
+  } catch {}
 }
 
 // 세션 종료 마커
@@ -91,17 +94,25 @@ async function main() {
     { pattern: 'todo:', weight: 2 },
     { pattern: 'remaining:', weight: 3 },
     { pattern: 'not yet', weight: 2 },
+    // Note: token overflow는 별도 isTokenOverflow 로직에서 처리 (오탐 방지)
+    { pattern: 'break your work into smaller', weight: 4 },
   ];
 
   const compPatterns = [
     { pattern: '모든 작업 완료', weight: 5 },
     { pattern: '완료했습니다', weight: 4 },
+    { pattern: '수정 완료', weight: 4 },
+    { pattern: '작업 완료', weight: 4 },
+    { pattern: '모두 통과', weight: 3 },
     { pattern: '마무리', weight: 3 },
     { pattern: '끝났', weight: 3 },
     { pattern: '정리하면', weight: 2 },
     { pattern: '요약하면', weight: 2 },
+    { pattern: '수정 요약', weight: 3 },
+    { pattern: '스킵한 항목', weight: 2 },
     { pattern: 'all tasks completed', weight: 5 },
     { pattern: 'all done', weight: 4 },
+    { pattern: 'completed', weight: 3 },
     { pattern: 'finished', weight: 3 },
     { pattern: 'complete', weight: 2 },
     { pattern: 'summary', weight: 1 },
@@ -120,6 +131,25 @@ async function main() {
   // 대기 큐 확인
   const pendingQueue = checkQueue();
   if (pendingQueue > 0) incScore += Math.ceil(Math.log2(pendingQueue + 1)) * 2;
+
+  // 토큰 초과 감지 (특별 처리)
+  // 실제 초과 vs 기능 설명 구분: 완료 신호가 충분하면 설명 컨텍스트로 판단
+  const tokenOverflowPatterns = ['output token limit', 'output token maximum', 'response was cut off', 'token_limit_exceeded', '토큰 초과', '토큰초과'];
+  const tokenHits = tokenOverflowPatterns.filter(p => msg.includes(p));
+  const isTokenOverflow = tokenHits.length > 0 && compScore < 3;
+
+  if (isTokenOverflow) {
+    writeCheckpoint(
+      `토큰 초과로 중단 - 파일 분할 필요`,
+      [...incHits, 'TOKEN_OVERFLOW'],
+      { type: 'token_overflow', guidance: '큰 파일은 300줄 이하로 분할. Agent 도구 사용 시 출력 크기 제한 필요.' }
+    );
+    logEvent('stop', { decision: 'block', reason: 'token_overflow', incScore, compScore, tokenHits });
+    return out(JSON.stringify({
+      decision: 'block',
+      reason: '토큰 초과 감지! 작업을 더 작은 단위로 분할하세요.'
+    }));
+  }
 
   // 결정: 미완료 가중치가 완료 가중치보다 높으면 차단
   const shouldBlock = incScore >= 4 && compScore < incScore;

@@ -43,27 +43,31 @@ const QUEUE_DIR = DIRS.queue;
 const DASHBOARD_REMOTE = path.join(CLAUDE_DIR, 'dashboard-remote.html');
 const DASHBOARD_LEGACY = path.join(CLAUDE_DIR, 'dashboard.html');
 const DASHBOARD = fs.existsSync(DASHBOARD_REMOTE) ? DASHBOARD_REMOTE : DASHBOARD_LEGACY;
+const MODULES_DIR = path.join(CLAUDE_DIR, 'dashboard-modules');
 const SUPABASE_CONFIG = path.join(CLAUDE_DIR, '.supabase-config.json');
 
+// Cached supabase config (read once, watch for changes)
+let _sbConfigCache = undefined; // undefined = not loaded yet
 function readSupabaseConfig() {
+  if (_sbConfigCache !== undefined) return _sbConfigCache;
   try {
-    if (!fs.existsSync(SUPABASE_CONFIG)) return null;
     const cfg = JSON.parse(fs.readFileSync(SUPABASE_CONFIG, 'utf8'));
-    if (cfg.url && cfg.anonKey && cfg.sessionId) return cfg;
-    return null;
-  } catch { return null; }
+    _sbConfigCache = (cfg.url && cfg.anonKey && cfg.sessionId) ? cfg : null;
+  } catch { _sbConfigCache = null; }
+  return _sbConfigCache;
 }
+// Invalidate cache when config file changes
+try { fs.watch(SUPABASE_CONFIG, () => { _sbConfigCache = undefined; }); } catch {}
 
 function injectSupabaseConfig(html) {
   const cfg = readSupabaseConfig();
   if (!cfg) return html;
-  const safeUrl = cfg.url.replace(/'/g, "\\'");
-  const safeKey = cfg.anonKey.replace(/'/g, "\\'");
-  const safeSid = cfg.sessionId.replace(/'/g, "\\'");
+  // Use JSON.stringify for safe JS string escaping + prevent </script> injection
+  const safe = (s) => JSON.stringify(String(s)).replace(/<\//g, '<\\/');
   const script = `<script>/* auto-inject supabase config */
-if(!localStorage.getItem('ops_sb_url'))localStorage.setItem('ops_sb_url','${safeUrl}');
-if(!localStorage.getItem('ops_sb_key'))localStorage.setItem('ops_sb_key','${safeKey}');
-if(!localStorage.getItem('ops_sb_session'))localStorage.setItem('ops_sb_session','${safeSid}');
+if(!localStorage.getItem('ops_sb_url'))localStorage.setItem('ops_sb_url',${safe(cfg.url)});
+if(!localStorage.getItem('ops_sb_key'))localStorage.setItem('ops_sb_key',${safe(cfg.anonKey)});
+if(!localStorage.getItem('ops_sb_session'))localStorage.setItem('ops_sb_session',${safe(cfg.sessionId)});
 </script>`;
   return html.replace('<head>', '<head>' + script);
 }
@@ -422,9 +426,25 @@ const server = http.createServer((req, res) => {
       break;
     }
 
-    default:
+    default: {
+      // Serve dashboard-modules/*.js files
+      const MIME = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
+      const ext = path.extname(url.pathname);
+      if (MIME[ext]) {
+        const filePath = path.resolve(MODULES_DIR, url.pathname.slice(1));
+        // Path traversal guard: resolved path must stay within MODULES_DIR
+        if (filePath.startsWith(MODULES_DIR + path.sep) || filePath === MODULES_DIR) {
+          try {
+            const content = fs.readFileSync(filePath, 'utf8');
+            res.writeHead(200, { 'Content-Type': MIME[ext] + '; charset=utf-8' });
+            res.end(content);
+            break;
+          } catch { /* fall through to 404 */ }
+        }
+      }
       res.writeHead(404);
       res.end('Not found');
+    }
   }
 });
 

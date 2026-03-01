@@ -85,6 +85,24 @@ function extractError(response) {
   return null;
 }
 
+// 토큰 초과 감지 (hot path - avoid JSON.stringify on large responses)
+const TOKEN_OVERFLOW_PATTERNS = [
+  /output token (limit|maximum)/i,
+  /exceeded.*\d+.*token/i,
+  /response.*cut off/i,
+  /token_limit_exceeded/i,
+  /토큰\s?초과/,
+];
+function isTokenOverflow(val) {
+  if (!val) return false;
+  if (typeof val === 'string') return TOKEN_OVERFLOW_PATTERNS.some(p => p.test(val));
+  // Check only string fields at top level instead of serializing entire object
+  for (const k of ['error', 'message', 'stderr', 'result']) {
+    if (typeof val[k] === 'string' && TOKEN_OVERFLOW_PATTERNS.some(p => p.test(val[k]))) return true;
+  }
+  return false;
+}
+
 async function main() {
   let raw = '';
   for await (const c of process.stdin) raw += c;
@@ -99,7 +117,11 @@ async function main() {
 
   // 민감 경로 체크
   const filePath = input.file_path || '';
-  const level = isSensitivePath(filePath) ? 'warn' : 'info';
+  let level = isSensitivePath(filePath) ? 'warn' : 'info';
+
+  // 토큰 초과 감지
+  const tokenOvf = isTokenOverflow(data.tool_response) || isTokenOverflow(err);
+  if (tokenOvf) level = 'error';
 
   const seq = nextSeq();
   const group = toolGroup(tool);
@@ -111,12 +133,13 @@ async function main() {
     tool,
     group,
     summary,
-    ok: !err,
+    ok: !err && !tokenOvf,
     sid: (data.session_id || '').slice(0, 16),
     level,
   };
 
   if (err) entry.err = err;
+  if (tokenOvf) entry.tokenOverflow = true;
   if (level === 'warn') entry.sensitiveFile = path.basename(filePath);
 
   try {
