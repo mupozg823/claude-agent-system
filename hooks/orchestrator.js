@@ -27,15 +27,13 @@ const path = require('path');
 const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
+const { HOME, CLAUDE_DIR, DIRS, ENGINE, ensureDirs } = require('./lib/utils');
 const CLAUDE = process.env.CLAUDE_BIN || 'claude';
-const ENGINE = path.join(HOME, '.claude', 'hooks', 'agent-engine.js');
-const SKILLS_DIR = path.join(HOME, '.claude', 'commands');
-const RUNS_DIR = path.join(HOME, '.claude', 'orchestrator');
-const LOGS_DIR = path.join(HOME, '.claude', 'logs');
+const SKILLS_DIR = path.join(CLAUDE_DIR, 'commands');
+const RUNS_DIR = DIRS.orchestrator;
+const LOGS_DIR = DIRS.logs;
 
-fs.mkdirSync(RUNS_DIR, { recursive: true });
-fs.mkdirSync(LOGS_DIR, { recursive: true });
+ensureDirs(RUNS_DIR, LOGS_DIR);
 
 // ── FSM States ──
 const STATE = {

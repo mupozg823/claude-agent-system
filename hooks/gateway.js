@@ -33,39 +33,29 @@ const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
 const WebSocket = require('ws');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const CLAUDE_DIR = path.join(HOME, '.claude');
-const ENGINE = path.join(CLAUDE_DIR, 'hooks', 'agent-engine.js');
-const ORCHESTRATOR = path.join(CLAUDE_DIR, 'hooks', 'orchestrator.js');
-const AUDIT_DIR = path.join(CLAUDE_DIR, 'logs', 'audit');
+const {
+  HOME, CLAUDE_DIR, HOOKS_DIR, DIRS, ENGINE,
+  localDate, log: _log, AuditTailer,
+} = require('./lib/utils');
+
+const ORCHESTRATOR = path.join(HOOKS_DIR, 'orchestrator.js');
+const AUDIT_DIR = DIRS.audit;
 const GATEWAY_PID = path.join(CLAUDE_DIR, 'gateway.pid');
-const GATEWAY_LOG = path.join(CLAUDE_DIR, 'logs', 'gateway.jsonl');
+const GATEWAY_LOG = path.join(DIRS.logs, 'gateway.jsonl');
 const CONFIG_FILE = path.join(CLAUDE_DIR, '.supabase-config.json');
 const CRON_FILE = path.join(CLAUDE_DIR, 'CRON.md');
-const BINDING_RULES_FILE = path.join(CLAUDE_DIR, 'hooks', 'binding-rules.json');
-const SKILL_ROUTER_FILE = path.join(CLAUDE_DIR, 'hooks', 'skill-router.js');
+const BINDING_RULES_FILE = path.join(HOOKS_DIR, 'binding-rules.json');
+const SKILL_ROUTER_FILE = path.join(HOOKS_DIR, 'skill-router.js');
 const DEFAULT_PORT = 18790;
 
-fs.mkdirSync(path.join(CLAUDE_DIR, 'logs'), { recursive: true });
+fs.mkdirSync(DIRS.logs, { recursive: true });
 
 // ══════════════════════════════════════════════════════
 // ── LOGGING ──
 // ══════════════════════════════════════════════════════
 
 function log(level, msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  const prefix = { info: '[INF]', warn: '[WRN]', error: '[ERR]' };
-  console.log(`${ts} ${prefix[level] || '[???]'} ${msg}`);
-  try {
-    fs.appendFileSync(GATEWAY_LOG, JSON.stringify({
-      ts: new Date().toISOString(), level, msg,
-    }) + '\n');
-  } catch {}
-}
-
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  _log(level, msg, { file: GATEWAY_LOG });
 }
 
 // ══════════════════════════════════════════════════════
@@ -233,6 +223,10 @@ class InboundGuard {
     this.debounceTimers = new Map();
     this.debounceMs = opts.debounceMs || 300;
 
+    // OpenClaw-style cap/drop policy
+    this.cap = opts.cap || 20;          // Max queued messages per session
+    this.drop = opts.drop || 'oldest';  // 'oldest' | 'newest' | 'summarize'
+
     // Periodic cache cleanup
     this._cleanupTimer = setInterval(() => {
       const now = Date.now();
@@ -249,11 +243,37 @@ class InboundGuard {
     return false;
   }
 
+  // OpenClaw-style: attachments flush immediately, control commands bypass debounce
+  shouldFlushImmediately(msg) {
+    if (msg.attachments && msg.attachments.length > 0) return true;
+    if (msg.type === 'control' || msg.type === 'steer') return true;
+    if (typeof msg.command === 'string' && msg.command.startsWith('/')) return true;
+    return false;
+  }
+
   debounce(sessionId, msg, callback) {
+    // Immediate flush for attachments and control commands (OpenClaw pattern)
+    if (this.shouldFlushImmediately(msg)) {
+      callback([msg]);
+      return;
+    }
+
     const existing = this.debounceTimers.get(sessionId);
     if (existing) {
       clearTimeout(existing.timer);
       existing.messages.push(msg);
+
+      // Cap enforcement (OpenClaw-style overflow policy)
+      if (existing.messages.length > this.cap) {
+        if (this.drop === 'oldest') {
+          existing.messages.shift();
+          log('warn', `InboundGuard: cap exceeded for ${sessionId}, dropped oldest`);
+        } else if (this.drop === 'newest') {
+          existing.messages.pop();
+          log('warn', `InboundGuard: cap exceeded for ${sessionId}, dropped newest`);
+        }
+        // 'summarize' mode: keep all, let consumer handle summarization
+      }
     } else {
       this.debounceTimers.set(sessionId, { messages: [msg], timer: null });
     }
@@ -327,6 +347,27 @@ class SessionStore {
   list() {
     return [...this.sessions.values()];
   }
+
+  // OpenClaw-style scope guard: verify sender is authorized for this session
+  // Prevents cross-session context leakage in multi-user scenarios
+  checkScope(sessionId, senderId, opts = {}) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return { allowed: true, reason: 'new_session' };
+
+    // Per-channel-peer isolation (OpenClaw dmScope pattern)
+    if (opts.dmScope === 'per-channel-peer') {
+      if (session.owner && session.owner !== senderId) {
+        return { allowed: false, reason: 'scope_violation', owner: session.owner };
+      }
+    }
+
+    // First access: claim ownership
+    if (!session.owner) {
+      this.upsert(sessionId, { owner: senderId });
+    }
+
+    return { allowed: true, reason: 'authorized' };
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -386,13 +427,14 @@ class PromiseQueue {
     }
   }
 
-  // Steer: inject direction change with mode support
-  // modes: 'steer' (inject at tool boundary), 'followup' (after current), 'replace' (clear queue + steer)
+  // Steer: inject direction change with mode support (OpenClaw-grade)
+  // modes: 'steer' (inject at tool boundary), 'followup' (after current),
+  //         'collect' (batch into single followup), 'replace' (clear queue + steer)
   steer(sessionId, message, opts = {}) {
     const lane = this._getLane(sessionId);
     const steerEntry = {
       message,
-      mode: opts.mode || 'steer',     // steer | followup | replace
+      mode: opts.mode || 'steer',     // steer | followup | collect | replace
       priority: opts.priority || 'high',
       ts: new Date().toISOString(),
       id: `steer-${Date.now()}`,
@@ -402,6 +444,32 @@ class PromiseQueue {
       // Clear queue and set steer
       lane.queue = [];
       lane.steerMsg = steerEntry;
+    } else if (steerEntry.mode === 'collect') {
+      // OpenClaw collect mode: batch messages into a single followup turn
+      if (!lane.collectBuffer) lane.collectBuffer = [];
+      lane.collectBuffer.push(message);
+
+      // Clear existing collect timer
+      if (lane.collectTimer) clearTimeout(lane.collectTimer);
+
+      // Debounce: wait for quiet period before creating followup
+      lane.collectTimer = setTimeout(() => {
+        const collected = lane.collectBuffer;
+        lane.collectBuffer = [];
+        lane.collectTimer = null;
+        const merged = collected.join('\n---\n');
+        const collectEntry = {
+          ...steerEntry,
+          message: merged,
+          mode: 'followup',
+          originalCount: collected.length,
+        };
+        lane.queue.unshift({
+          task: null, resolve: () => {}, reject: () => {},
+          id: collectEntry.id, steerData: collectEntry,
+        });
+        setImmediate(() => this._drain(sessionId));
+      }, opts.debounceMs || 1000);
     } else if (steerEntry.mode === 'followup') {
       // Add to front of queue (after current)
       lane.queue.unshift({ task: null, resolve: () => {}, reject: () => {}, id: steerEntry.id, steerData: steerEntry });
@@ -455,75 +523,7 @@ class PromiseQueue {
   }
 }
 
-// ══════════════════════════════════════════════════════
-// ── AUDIT TAILER ──
-// ══════════════════════════════════════════════════════
-
-class AuditTailer {
-  constructor(auditDir) {
-    this.auditDir = auditDir;
-    this.offset = 0;
-    this.currentFile = null;
-    this.watcher = null;
-    this._pollInterval = null;
-    this.onEntry = null;
-  }
-
-  getCurrentFile() {
-    return path.join(this.auditDir, `audit-${localDate()}.jsonl`);
-  }
-
-  startWatching(callback) {
-    this.onEntry = callback;
-    const file = this.getCurrentFile();
-    this.currentFile = file;
-    if (fs.existsSync(file)) {
-      this.offset = fs.readFileSync(file, 'utf8').length;
-    }
-
-    fs.mkdirSync(this.auditDir, { recursive: true });
-
-    try {
-      this.watcher = fs.watch(this.auditDir, { persistent: true }, (_, filename) => {
-        if (!filename || !filename.startsWith('audit-')) return;
-        this._flush();
-      });
-    } catch {}
-
-    this._pollInterval = setInterval(() => this._flush(), 1500);
-    log('info', `Audit tailer started: ${this.auditDir}`);
-  }
-
-  _flush() {
-    const file = this.getCurrentFile();
-    if (file !== this.currentFile) {
-      this.currentFile = file;
-      this.offset = 0;
-    }
-    if (!fs.existsSync(file)) return;
-
-    try {
-      const content = fs.readFileSync(file, 'utf8');
-      if (content.length <= this.offset) return;
-
-      const newContent = content.slice(this.offset);
-      this.offset = content.length;
-
-      const entries = newContent.trim().split('\n').filter(Boolean)
-        .map(l => { try { return JSON.parse(l); } catch { return null; } })
-        .filter(Boolean);
-
-      for (const entry of entries) {
-        if (this.onEntry) this.onEntry(entry);
-      }
-    } catch {}
-  }
-
-  stop() {
-    if (this.watcher) { this.watcher.close(); this.watcher = null; }
-    if (this._pollInterval) { clearInterval(this._pollInterval); }
-  }
-}
+// AuditTailer is imported from lib/utils.js
 
 // ══════════════════════════════════════════════════════
 // ── CHANNEL ADAPTER: SUPABASE ──
@@ -1330,15 +1330,10 @@ class Gateway extends EventEmitter {
     }
   }
 
-  // ── Engine Helper ──
+  // ── Engine Helper (delegated to lib/utils.runEngine) ──
   _runEngine(command, ...args) {
-    try {
-      const cmd = `node "${ENGINE}" ${command} ${args.map(a => `"${a}"`).join(' ')}`;
-      const result = execSync(cmd, { encoding: 'utf8', timeout: 10000 });
-      try { return JSON.parse(result.trim()); } catch { return result.trim(); }
-    } catch {
-      return null;
-    }
+    const { runEngine } = require('./lib/utils');
+    return runEngine(command, ...args);
   }
 
   _getMetrics() {

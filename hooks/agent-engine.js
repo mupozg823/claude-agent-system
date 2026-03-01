@@ -20,25 +20,10 @@
 
 const fs = require('fs');
 const path = require('path');
-
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const DIRS = {
-  logs: path.join(HOME, '.claude', 'logs'),
-  audit: path.join(HOME, '.claude', 'logs', 'audit'),
-  checkpoints: path.join(HOME, '.claude', 'logs', 'checkpoints'),
-  contexts: path.join(HOME, '.claude', 'contexts'),
-  queue: path.join(HOME, '.claude', 'queue'),
-};
+const { DIRS, localDate, ensureDirs } = require('./lib/utils');
 
 // Ensure all dirs exist
-for (const d of Object.values(DIRS)) {
-  fs.mkdirSync(d, { recursive: true });
-}
-
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
+ensureDirs(...Object.values(DIRS));
 
 // ── Checkpoint System ──
 function writeCheckpoint(summary, pendingTasks = []) {
@@ -69,7 +54,7 @@ function getLatestCheckpoint() {
   return null;
 }
 
-// ── Command Queue ──
+// ── Command Queue (LEGACY - prefer Lane Queue for new code) ──
 function queueAdd(command, priority = 'normal', metadata = {}) {
   const file = path.join(DIRS.queue, 'commands.jsonl');
   const entry = {
@@ -465,7 +450,7 @@ function getMetrics() {
 }
 
 // ── DAG Orchestration Support ──
-const ORCH_DIR = path.join(HOME, '.claude', 'orchestrator');
+const ORCH_DIR = DIRS.orchestrator;
 fs.mkdirSync(ORCH_DIR, { recursive: true });
 
 function dagSave(runId, dagData) {

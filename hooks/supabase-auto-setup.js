@@ -15,8 +15,8 @@ const fs = require('fs');
 const path = require('path');
 const { exec, execSync } = require('child_process');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const CONFIG_FILE = path.join(HOME, '.claude', '.supabase-config.json');
+const { HOME, CLAUDE_DIR } = require('./lib/utils');
+const CONFIG_FILE = path.join(CLAUDE_DIR, '.supabase-config.json');
 const PORT = 19726;
 const API = 'https://api.supabase.com';
 

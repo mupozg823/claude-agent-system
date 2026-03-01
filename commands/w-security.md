@@ -10,7 +10,8 @@ Implement security-first architecture and hardening measures with coordinated ag
 ## Phase 1: Security Assessment
 
 ### 1. Initial Security Audit
-- Use Task tool with subagent_type="security-auditor"
+- **먼저 /t-security-scan 스킬을 Skill 도구로 호출하여 취약점 스캔 수행** (상세 도구 가이드 포함)
+- 또는 Use Task tool with subagent_type="security-auditor"
 - Prompt: "Perform comprehensive security audit on: $ARGUMENTS. Identify vulnerabilities, compliance gaps, and security risks across all components."
 - Output: Vulnerability report, risk assessment, compliance gaps
 

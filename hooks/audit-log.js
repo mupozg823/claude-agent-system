@@ -12,14 +12,10 @@
 
 const fs = require('fs');
 const path = require('path');
+const { DIRS, auditFile: _auditFile } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-const auditFile = () => path.join(AUDIT_DIR, `audit-${localDate()}.jsonl`);
+const AUDIT_DIR = DIRS.audit;
+const auditFile = _auditFile;
 const SEQ_FILE = path.join(AUDIT_DIR, '.seq');
 
 const SENSITIVE = [/\.env($|\.)/, /credential/i, /secret/i, /password/i, /token\.json/i, /\.pem$/, /id_rsa/];

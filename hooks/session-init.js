@@ -2,26 +2,19 @@
 /**
  * session-init.js - SessionStart hook (replaces session-init.sh)
  *
- * 3-tier context loading:
+ * 3-tier context loading + OpenClaw-style context compaction:
  *   1) Latest checkpoint (checkpoints/*.jsonl → last entry)
  *   2) Latest context-save (contexts/*.json)
  *   3) Latest session log (logs/*.md → "다음에 이어서 할 작업")
  *   4) Command queue pending items (queue/commands.jsonl)
+ *   5) Context compaction: auto-truncate if total context exceeds MAX_CONTEXT_CHARS
  *
  * stdout: { hookSpecificOutput: { hookEventName, additionalContext } }
  */
 
 const fs = require('fs');
 const path = require('path');
-
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const DIRS = {
-  logs: path.join(HOME, '.claude', 'logs'),
-  audit: path.join(HOME, '.claude', 'logs', 'audit'),
-  checkpoints: path.join(HOME, '.claude', 'logs', 'checkpoints'),
-  contexts: path.join(HOME, '.claude', 'contexts'),
-  queue: path.join(HOME, '.claude', 'queue'),
-};
+const { DIRS } = require('./lib/utils');
 
 function out(s) { process.stdout.write(s); }
 
@@ -101,6 +94,33 @@ function getQueueContext() {
   return `[대기 명령 ${pending.length}개] ${pending.slice(0, 3).join(' | ')}`;
 }
 
+// OpenClaw-style context compaction: prevent context overflow
+const MAX_CONTEXT_CHARS = 3000;
+
+function compactContext(parts) {
+  let context = parts.join('\n');
+  if (context.length <= MAX_CONTEXT_CHARS) return context;
+
+  // Priority: checkpoint > context-save > queue > log
+  // Truncate least important parts first (log context)
+  const truncated = [];
+  let remaining = MAX_CONTEXT_CHARS;
+  for (const part of parts) {
+    if (remaining <= 0) {
+      truncated.push(`[truncated: ${part.slice(0, 50)}...]`);
+      continue;
+    }
+    if (part.length <= remaining) {
+      truncated.push(part);
+      remaining -= part.length;
+    } else {
+      truncated.push(part.slice(0, remaining) + '...[compacted]');
+      remaining = 0;
+    }
+  }
+  return truncated.join('\n');
+}
+
 function main() {
   // Skip context loading for orchestrator decompose calls
   if (process.env.ORCH_DECOMPOSE === '1') {
@@ -111,8 +131,8 @@ function main() {
   const parts = [
     getCheckpointContext(),
     getContextSave(),
-    getLogContext(),
     getQueueContext(),
+    getLogContext(),  // lowest priority - compacted first
   ].filter(Boolean);
 
   if (parts.length === 0) {
@@ -120,7 +140,7 @@ function main() {
     return;
   }
 
-  const context = parts.join('\n');
+  const context = compactContext(parts);
   const result = {
     hookSpecificOutput: {
       hookEventName: 'SessionStart',

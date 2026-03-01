@@ -13,45 +13,22 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const { DIRS, auditFile, appendJsonl, writeCheckpoint: _writeCheckpoint } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-const LOGS_DIR = path.join(HOME, '.claude', 'logs');
-const CHECKPOINT_DIR = path.join(HOME, '.claude', 'logs', 'checkpoints');
-const QUEUE_DIR = path.join(HOME, '.claude', 'queue');
-
-function auditFile() {
-  const d = new Date();
-  const ld = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  return path.join(AUDIT_DIR, `audit-${ld}.jsonl`);
-}
+const AUDIT_DIR = DIRS.audit;
+const LOGS_DIR = DIRS.logs;
+const CHECKPOINT_DIR = DIRS.checkpoints;
+const QUEUE_DIR = DIRS.queue;
 
 function logEvent(event, detail) {
   try {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
-    fs.appendFileSync(auditFile(), JSON.stringify({
-      ts: new Date().toISOString(),
-      ev: event,
-      ...detail
-    }) + '\n');
+    appendJsonl(auditFile(), { ts: new Date().toISOString(), ev: event, ...detail });
   } catch {}
 }
 
-// 체크포인트 작성
 function writeCheckpoint(summary, pendingTasks = []) {
-  try {
-    fs.mkdirSync(CHECKPOINT_DIR, { recursive: true });
-    const d = new Date();
-    const ld = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const file = path.join(CHECKPOINT_DIR, `checkpoint-${ld}.jsonl`);
-    const entry = {
-      ts: new Date().toISOString(),
-      summary,
-      pendingTasks,
-      type: 'stop',
-    };
-    fs.appendFileSync(file, JSON.stringify(entry) + '\n');
-  } catch {}
+  try { _writeCheckpoint(summary, pendingTasks, { type: 'stop' }); } catch {}
 }
 
 // 세션 종료 마커
@@ -64,41 +41,20 @@ function writeSessionMarker() {
   } catch {}
 }
 
-// 정리 작업
+// 정리 작업 - agent-engine.js cleanup에 위임
 function cleanup() {
-  const now = Date.now();
   try {
-    // 7일 이상 세션 마커
-    for (const f of fs.readdirSync(LOGS_DIR)) {
-      if (!f.startsWith('.last-session-')) continue;
-      const fp = path.join(LOGS_DIR, f);
-      if (now - fs.statSync(fp).mtimeMs > 7 * 86400000) fs.unlinkSync(fp);
-    }
-    // 30일 이상 감사 로그
-    for (const f of fs.readdirSync(AUDIT_DIR)) {
-      if (!f.startsWith('audit-')) continue;
-      const fp = path.join(AUDIT_DIR, f);
-      if (now - fs.statSync(fp).mtimeMs > 30 * 86400000) fs.unlinkSync(fp);
-    }
-    // 14일 이상 체크포인트
-    if (fs.existsSync(CHECKPOINT_DIR)) {
-      for (const f of fs.readdirSync(CHECKPOINT_DIR)) {
-        const fp = path.join(CHECKPOINT_DIR, f);
-        if (now - fs.statSync(fp).mtimeMs > 14 * 86400000) fs.unlinkSync(fp);
-      }
-    }
+    const { runEngine } = require('./lib/utils');
+    runEngine('cleanup');
   } catch {}
 }
 
 // 대기 큐 확인
 function checkQueue() {
   try {
-    const qFile = path.join(QUEUE_DIR, 'commands.jsonl');
-    if (!fs.existsSync(qFile)) return 0;
-    const lines = fs.readFileSync(qFile, 'utf8').trim().split('\n').filter(Boolean);
-    return lines.filter(l => {
-      try { return JSON.parse(l).status === 'pending'; } catch { return false; }
-    }).length;
+    const { parseJsonl } = require('./lib/utils');
+    const entries = parseJsonl(path.join(QUEUE_DIR, 'commands.jsonl'));
+    return entries.filter(e => e.status === 'pending').length;
   } catch { return 0; }
 }
 

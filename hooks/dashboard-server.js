@@ -15,7 +15,8 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
+const { DIRS, HOME, CLAUDE_DIR, localDate: _localDate } = require('./lib/utils');
+
 const PORT = parseInt(process.argv[2]) || 17891;
 const NO_AUTH = process.argv.includes('--no-auth');
 const TOKEN = process.env.DASH_TOKEN || crypto.randomBytes(16).toString('hex');
@@ -35,10 +36,10 @@ function checkAuth(req) {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   return url.searchParams.get('token') === TOKEN;
 }
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-const CHECKPOINT_DIR = path.join(HOME, '.claude', 'logs', 'checkpoints');
-const QUEUE_DIR = path.join(HOME, '.claude', 'queue');
-const DASHBOARD = path.join(HOME, '.claude', 'dashboard.html');
+const AUDIT_DIR = DIRS.audit;
+const CHECKPOINT_DIR = DIRS.checkpoints;
+const QUEUE_DIR = DIRS.queue;
+const DASHBOARD = path.join(CLAUDE_DIR, 'dashboard.html');
 
 let sseClients = [];
 let lastLineCount = 0;
@@ -46,13 +47,7 @@ let cachedEntries = [];
 let watcher = null;
 let watchDebounce = null;
 
-function localDate() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
-}
+function localDate() { return _localDate(); }
 
 function todayFile() {
   return path.join(AUDIT_DIR, `audit-${localDate()}.jsonl`);

@@ -29,12 +29,13 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { createClient } = require('@supabase/supabase-js');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const CLAUDE_DIR = path.join(HOME, '.claude');
-const HOOKS_DIR = path.join(CLAUDE_DIR, 'hooks');
-const AUDIT_DIR = path.join(CLAUDE_DIR, 'logs', 'audit');
+const {
+  HOME, CLAUDE_DIR, HOOKS_DIR, DIRS, ENGINE,
+  localDate: _localDate, AuditTailer, runEngine: _runEngine,
+} = require('./lib/utils');
+
+const AUDIT_DIR = DIRS.audit;
 const CONFIG_FILE = path.join(CLAUDE_DIR, '.supabase-config.json');
-const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
 
 // ── Config ──
 function loadConfig() {
@@ -278,15 +279,11 @@ async function setup() {
   }
 }
 
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+function localDate() { return _localDate(); }
 
 function log(level, msg) {
-  const ts = new Date().toISOString().slice(11, 19);
-  const prefix = { info: '\x1b[36m[INFO]\x1b[0m', warn: '\x1b[33m[WARN]\x1b[0m', error: '\x1b[31m[ERR]\x1b[0m' };
-  console.log(`${ts} ${prefix[level] || '[???]'} ${msg}`);
+  const { log: utilLog } = require('./lib/utils');
+  utilLog(level, msg);
 }
 
 // ── Exponential Backoff Reconnect ──
@@ -334,108 +331,9 @@ class BackoffReconnect {
   }
 }
 
-// ── Audit Log Reader ──
-class AuditTailer {
-  constructor(auditDir) {
-    this.auditDir = auditDir;
-    this.offset = 0;
-    this.currentFile = null;
-    this.watcher = null;
-    this.onEntry = null;
-  }
-
-  getCurrentFile() {
-    return path.join(this.auditDir, `audit-${localDate()}.jsonl`);
-  }
-
-  init() {
-    const file = this.getCurrentFile();
-    this.currentFile = file;
-    if (fs.existsSync(file)) {
-      // Start from end of existing file
-      const content = fs.readFileSync(file, 'utf8');
-      this.offset = content.length;
-    }
-  }
-
-  readNewEntries() {
-    const file = this.getCurrentFile();
-
-    // Date changed - reset offset
-    if (file !== this.currentFile) {
-      this.currentFile = file;
-      this.offset = 0;
-    }
-
-    if (!fs.existsSync(file)) return [];
-
-    try {
-      const content = fs.readFileSync(file, 'utf8');
-      if (content.length <= this.offset) return [];
-
-      const newContent = content.slice(this.offset);
-      this.offset = content.length;
-
-      return newContent.trim().split('\n')
-        .filter(Boolean)
-        .map(line => {
-          try { return JSON.parse(line); } catch { return null; }
-        })
-        .filter(Boolean);
-    } catch {
-      return [];
-    }
-  }
-
-  startWatching(callback) {
-    this.onEntry = callback;
-    this.init();
-
-    fs.mkdirSync(this.auditDir, { recursive: true });
-
-    // fs.watch + polling hybrid (Windows fs.watch is unreliable for content changes)
-    try {
-      this.watcher = fs.watch(this.auditDir, { persistent: true }, (eventType, filename) => {
-        if (!filename || !filename.startsWith('audit-')) return;
-        this._flush();
-      });
-    } catch (e) {
-      log('warn', `fs.watch failed: ${e.message}`);
-    }
-
-    // Always poll as primary method (1.5s) - works reliably on Windows
-    this._pollInterval = setInterval(() => this._flush(), 1500);
-
-    log('info', `Watching audit dir: ${this.auditDir} (poll+watch)`);
-  }
-
-  _flush() {
-    const entries = this.readNewEntries();
-    for (const entry of entries) {
-      if (this.onEntry) this.onEntry(entry);
-    }
-    if (entries.length > 0) {
-      log('info', `Broadcast ${entries.length} audit event(s)`);
-    }
-  }
-
-  stop() {
-    if (this.watcher) { this.watcher.close(); this.watcher = null; }
-    if (this._pollInterval) { clearInterval(this._pollInterval); this._pollInterval = null; }
-  }
-}
-
-// ── Agent Engine Helper ──
-function runEngine(command, ...args) {
-  try {
-    const cmd = `node "${ENGINE}" ${command} ${args.map(a => `"${a}"`).join(' ')}`;
-    const result = execSync(cmd, { encoding: 'utf8', timeout: 10000 });
-    try { return JSON.parse(result.trim()); } catch { return result.trim(); }
-  } catch (e) {
-    log('error', `Engine ${command} failed: ${e.message}`);
-    return null;
-  }
-}
+// AuditTailer imported from lib/utils.js
+// runEngine imported as _runEngine from lib/utils.js
+function runEngine(command, ...args) { return _runEngine(command, ...args); }
 
 // ── Command Allowlist ──
 const ALLOWED_COMMANDS = [

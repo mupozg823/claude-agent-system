@@ -23,7 +23,7 @@ const os = require('os');
 
 const PORT = 17891;
 const NO_AUTH = process.argv.includes('--no-auth');
-const HOME = process.env.HOME || process.env.USERPROFILE;
+const { HOME } = require('./lib/utils');
 
 let dashProcess = null;
 let tunnelProcess = null;

@@ -19,9 +19,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const CLAUDE_DIR = path.join(HOME, '.claude');
-const RULES_FILE = path.join(CLAUDE_DIR, 'hooks', 'skill-rules.json');
+const { CLAUDE_DIR, HOOKS_DIR } = require('./lib/utils');
+const RULES_FILE = path.join(HOOKS_DIR, 'skill-rules.json');
 const COMMANDS_DIR = path.join(CLAUDE_DIR, 'commands');
 
 // ── Load Skill Rules ──

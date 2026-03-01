@@ -21,15 +21,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { DIRS, auditFile } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-const today = localDate;
-const auditFile = () => path.join(AUDIT_DIR, `audit-${today()}.jsonl`);
+const AUDIT_DIR = DIRS.audit;
 
 // ── 차단 패턴 (파괴적 작업) ──
 const BLOCK = [
