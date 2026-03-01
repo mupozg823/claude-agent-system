@@ -39,10 +39,10 @@ function checkAuth(req) {
 const AUDIT_DIR = DIRS.audit;
 const CHECKPOINT_DIR = DIRS.checkpoints;
 const QUEUE_DIR = DIRS.queue;
-// Prefer dashboard-ops.html (PixiJS kairosoft-style) over legacy dashboard.html
-const DASHBOARD_OPS = path.join(CLAUDE_DIR, 'dashboard-ops.html');
+// Serve dashboard-remote.html (3층 스타일) as primary, fallback to legacy
+const DASHBOARD_REMOTE = path.join(CLAUDE_DIR, 'dashboard-remote.html');
 const DASHBOARD_LEGACY = path.join(CLAUDE_DIR, 'dashboard.html');
-const DASHBOARD = fs.existsSync(DASHBOARD_OPS) ? DASHBOARD_OPS : DASHBOARD_LEGACY;
+const DASHBOARD = fs.existsSync(DASHBOARD_REMOTE) ? DASHBOARD_REMOTE : DASHBOARD_LEGACY;
 const SUPABASE_CONFIG = path.join(CLAUDE_DIR, '.supabase-config.json');
 
 function readSupabaseConfig() {
