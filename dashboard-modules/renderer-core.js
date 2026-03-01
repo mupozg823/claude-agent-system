@@ -26,7 +26,7 @@ export async function initPixi(){
     S.L.agents.sortableChildren=true;
     S.dpr=Math.min(window.devicePixelRatio||1,2);
     for(let i=0;i<8;i++){
-      const ac=document.createElement('canvas');ac.width=80*S.dpr;ac.height=120*S.dpr;S.agentCanvases.push(ac);
+      const ac=document.createElement('canvas');ac.width=110*S.dpr;ac.height=120*S.dpr;S.agentCanvases.push(ac);
       const sp=new PIXI.Sprite();sp.anchor.set(0.5,0.5);S.agentSprites.push(sp);S.L.agents.addChild(sp);
     }
     for(let i=0;i<8;i++){
@@ -36,7 +36,7 @@ export async function initPixi(){
     S.hudCanvas=document.createElement('canvas');S.hudCanvas.width=240*S.dpr;S.hudCanvas.height=80*S.dpr;
     S.hudCx=S.hudCanvas.getContext('2d');S.hudCx.setTransform(S.dpr,0,0,S.dpr,0,0);
     S.hudSprite=new PIXI.Sprite();S.L.hud.addChild(S.hudSprite);
-    S.buf=document.createElement('canvas');S.buf.width=80*S.dpr;S.buf.height=120*S.dpr;
+    S.buf=document.createElement('canvas');S.buf.width=110*S.dpr;S.buf.height=120*S.dpr;
     S.cx=S.buf.getContext('2d');S.cx.setTransform(S.dpr,0,0,S.dpr,0,0);
     S.pixiApp.ticker.maxFPS=30;S.pixiReady=true;
     console.log('PixiJS v8 initialized',S.pixiApp.screen.width+'x'+S.pixiApp.screen.height);
@@ -120,24 +120,23 @@ export function drawCh(px,py,type,wf,dir,work,bub,ag){
   cx.fillRect(px-4.5*s,y+2.5*s+armL,1.5*s,3.5*s);cx.fillRect(px+3*s,y+2.5*s+armR,1.5*s,3.5*s);
   cx.fillStyle=SK;
   cx.fillRect(px-4.5*s,y+5.5*s+armL,1.5*s,1.2*s);cx.fillRect(px+3*s,y+5.5*s+armR,1.5*s,1.2*s);
-  let headOff=0;
-  cx.fillStyle=OL;cx.fillRect(px-5*s-1+headOff,y-5*s-1,10*s+2,7*s+2);
-  cx.fillStyle=SK;cx.fillRect(px-5*s+headOff,y-5*s,10*s,7*s);
-  cx.fillStyle='#FFAA8840';cx.fillRect(px-4.5*s+headOff,y-.5*s,2*s,1.5*s);cx.fillRect(px+2.5*s+headOff,y-.5*s,2*s,1.5*s);
-  cx.fillStyle=OL;cx.fillRect(px-5.5*s-1+headOff,y-6.5*s-1,11*s+2,3.5*s+2);
-  cx.fillStyle=c.h;cx.fillRect(px-5.5*s+headOff,y-6.5*s,11*s,3.5*s);
-  cx.fillRect(px-5.5*s+headOff,y-3.5*s,2*s,2.5*s);cx.fillRect(px+3.5*s+headOff,y-3.5*s,2*s,2.5*s);
+  cx.fillStyle=OL;cx.fillRect(px-5*s-1,y-5*s-1,10*s+2,7*s+2);
+  cx.fillStyle=SK;cx.fillRect(px-5*s,y-5*s,10*s,7*s);
+  cx.fillStyle='#FFAA8840';cx.fillRect(px-4.5*s,y-.5*s,2*s,1.5*s);cx.fillRect(px+2.5*s,y-.5*s,2*s,1.5*s);
+  cx.fillStyle=OL;cx.fillRect(px-5.5*s-1,y-6.5*s-1,11*s+2,3.5*s+2);
+  cx.fillStyle=c.h;cx.fillRect(px-5.5*s,y-6.5*s,11*s,3.5*s);
+  cx.fillRect(px-5.5*s,y-3.5*s,2*s,2.5*s);cx.fillRect(px+3.5*s,y-3.5*s,2*s,2.5*s);
   const blk=fr%180>=176;
   if(!blk){
     const ex=dir>0?s*.3:dir<0?-s*.3:0;
-    cx.fillStyle='#FFF';cx.fillRect(px-3.5*s+headOff,y-3*s,3*s,2.5*s);cx.fillRect(px+.5*s+headOff,y-3*s,3*s,2.5*s);
-    cx.fillStyle='#222';cx.fillRect(px-2.5*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);cx.fillRect(px+1.2*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);
-    cx.fillStyle='#FFF';cx.fillRect(px-2.2*s+ex+headOff,y-2.5*s,s*.6,s*.6);cx.fillRect(px+1.5*s+ex+headOff,y-2.5*s,s*.6,s*.6);
-  }else{cx.fillStyle='#222';cx.fillRect(px-3*s+headOff,y-1.8*s,2.5*s,s*.4);cx.fillRect(px+.5*s+headOff,y-1.8*s,2.5*s,s*.4)}
+    cx.fillStyle='#FFF';cx.fillRect(px-3.5*s,y-3*s,3*s,2.5*s);cx.fillRect(px+.5*s,y-3*s,3*s,2.5*s);
+    cx.fillStyle='#222';cx.fillRect(px-2.5*s+ex,y-2.5*s,1.8*s,1.8*s);cx.fillRect(px+1.2*s+ex,y-2.5*s,1.8*s,1.8*s);
+    cx.fillStyle='#FFF';cx.fillRect(px-2.2*s+ex,y-2.5*s,s*.6,s*.6);cx.fillRect(px+1.5*s+ex,y-2.5*s,s*.6,s*.6);
+  }else{cx.fillStyle='#222';cx.fillRect(px-3*s,y-1.8*s,2.5*s,s*.4);cx.fillRect(px+.5*s,y-1.8*s,2.5*s,s*.4)}
   cx.fillStyle='#CC6644';
-  if(walk){cx.fillRect(px-.3*s+headOff,y+.5*s,s*.6,s*.4)}
-  else{cx.fillRect(px-.5*s+headOff,y+.5*s,s,s*.4)}
-  drawAccessory(px+headOff,y,type,s,false);
+  if(walk){cx.fillRect(px-.3*s,y+.5*s,s*.6,s*.4)}
+  else{cx.fillRect(px-.5*s,y+.5*s,s,s*.4)}
+  drawAccessory(px,y,type,s,false);
   if(flip)cx.restore();
   if(idle){drawStatusIcon(px+6*s,y-7*s,'idle')}
   drawWorkerBadge(px,y-9*s,ag,s);
@@ -218,15 +217,23 @@ function drawStatusIcon(x,y,type){
 
 function drawBub(x,y,t){
   const cx=S.cx;
-  const full=t.length>36?t.slice(0,36)+'\u2026':t;
+  // Canvas-aware max width: leave 6px margin each side
+  const canvasW=S.buf?S.buf.width/S.dpr:120;
+  const maxBubW=canvasW-12;
+  const full=t.length>42?t.slice(0,42)+'\u2026':t;
   // Split into tool label (short) and detail
   const slashIdx=full.indexOf(':');
   const line1=slashIdx>0&&slashIdx<12?full.slice(0,slashIdx):'';
   const line2=line1?full.slice(slashIdx+1).trim():full;
   const twoLine=!!line1;
   cx.font='bold 11px monospace';
-  const tw=cx.measureText(line2).width;
-  const w=Math.max(tw+16,50),h=twoLine?30:22,bx2=x-w/2,by=y-h,r=5;
+  const tw=cx.measureText(twoLine?line2:full).width;
+  const rawW=Math.max(tw+16,50);
+  const w=Math.min(rawW,maxBubW),h=twoLine?30:22,r=5;
+  // Clamp x so bubble stays within canvas
+  const bx2=Math.max(2,Math.min(x-w/2,canvasW-w-2)),by=y-h;
+  // Tail x stays at character center
+  const tailX=Math.max(bx2+r+2,Math.min(x,bx2+w-r-2));
   cx.fillStyle='#1A1A0A30';cx.fillRect(bx2+1,by+1,w,h);
   cx.fillStyle='#FFF6E8';cx.beginPath();
   cx.moveTo(bx2+r,by);cx.lineTo(bx2+w-r,by);cx.arc(bx2+w-r,by+r,r,-Math.PI/2,0);
@@ -235,11 +242,14 @@ function drawBub(x,y,t){
   cx.lineTo(bx2,by+r);cx.arc(bx2+r,by+r,r,Math.PI,3*Math.PI/2);cx.fill();
   cx.strokeStyle='#C4A06A';cx.lineWidth=1.5;cx.stroke();
   cx.fillStyle='#D4A032';cx.fillRect(bx2+2,by,w-4,2);
-  cx.fillStyle='#FFF6E8';cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x+3,y);cx.lineTo(x,y+4);cx.fill();
-  cx.strokeStyle='#C4A06A';cx.lineWidth=1;cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x,y+4);cx.lineTo(x+3,y);cx.stroke();
+  cx.fillStyle='#FFF6E8';cx.beginPath();cx.moveTo(tailX-3,y);cx.lineTo(tailX+3,y);cx.lineTo(tailX,y+4);cx.fill();
+  cx.strokeStyle='#C4A06A';cx.lineWidth=1;cx.beginPath();cx.moveTo(tailX-3,y);cx.lineTo(tailX,y+4);cx.lineTo(tailX+3,y);cx.stroke();
+  // Truncate text to fit bubble width
+  const textMaxW=w-12;
   cx.textAlign='center';cx.textBaseline='middle';
-  if(twoLine){cx.fillStyle='#999999';cx.font='bold 9px sans-serif';cx.fillText(line1,x,by+10);cx.fillStyle='#5A4020';cx.font='bold 11px monospace';cx.fillText(line2.slice(0,28),x,by+22);}
-  else{cx.fillStyle='#8B6F47';cx.fillText(full,x,y-h/2);}
+  const bubCx=bx2+w/2;
+  if(twoLine){cx.fillStyle='#999999';cx.font='bold 9px sans-serif';cx.fillText(line1,bubCx,by+10);cx.fillStyle='#5A4020';cx.font='bold 11px monospace';let d2=line2;while(cx.measureText(d2).width>textMaxW&&d2.length>3)d2=d2.slice(0,-1);cx.fillText(d2,bubCx,by+22);}
+  else{cx.fillStyle='#8B6F47';let fl=full;while(cx.measureText(fl).width>textMaxW&&fl.length>3)fl=fl.slice(0,-1);cx.fillText(fl,bubCx,y-h/2);}
   cx.textBaseline='alphabetic';
 }
 
