@@ -1,6 +1,6 @@
 // ── renderer-core.js ── Character drawing, background, particles, active screens
-import { S, C, FLOORS, DESKS, AT, SEASON_BG, TOOL_COLORS } from './state.js';
-import { getGameCalendar, getDayPhase } from './utils.js';
+import { S, C, FLOORS, DESKS, AT, DEFAULT_SKY, TOOL_COLORS, WORKER_ROLES } from './state.js';
+import { getDayPhase } from './utils.js';
 
 // ── Canvas dimension helpers ──
 export function cW(){return S.pixiApp?S.pixiApp.screen.width:(document.getElementById('c').width/S.dpr)}
@@ -15,7 +15,7 @@ export async function initPixi(){
     await S.pixiApp.init({resizeTo:container,background:0xD4C8A0,antialias:false,
       resolution:Math.min(window.devicePixelRatio||1,2),autoDensity:true,
       preference:'webgl',powerPreference:'high-performance'});
-    PIXI.TextureStyle.defaultOptions.scaleMode='nearest';
+    PIXI.TextureStyle.defaultOptions.scaleMode='linear';
     const old=container.querySelector('canvas');if(old)old.remove();
     S.pixiApp.canvas.style.cssText='display:block;width:100%;height:100%';
     container.appendChild(S.pixiApp.canvas);
@@ -24,19 +24,20 @@ export async function initPixi(){
     });
     S.bgSprite=new PIXI.Sprite();S.L.bg.addChild(S.bgSprite);
     S.L.agents.sortableChildren=true;
+    S.dpr=Math.min(window.devicePixelRatio||1,2);
     for(let i=0;i<8;i++){
-      const ac=document.createElement('canvas');ac.width=80;ac.height=120;S.agentCanvases.push(ac);
+      const ac=document.createElement('canvas');ac.width=80*S.dpr;ac.height=120*S.dpr;S.agentCanvases.push(ac);
       const sp=new PIXI.Sprite();sp.anchor.set(0.5,0.5);S.agentSprites.push(sp);S.L.agents.addChild(sp);
     }
     for(let i=0;i<8;i++){
-      const dc=document.createElement('canvas');dc.width=50;dc.height=50;S.deskCanvases.push(dc);
+      const dc=document.createElement('canvas');dc.width=50*S.dpr;dc.height=50*S.dpr;S.deskCanvases.push(dc);
       const sp=new PIXI.Sprite();sp.visible=false;S.deskSprites.push(sp);S.L.desks.addChild(sp);
     }
-    S.hudCanvas=document.createElement('canvas');S.hudCanvas.width=240;S.hudCanvas.height=80;
-    S.hudCx=S.hudCanvas.getContext('2d');
+    S.hudCanvas=document.createElement('canvas');S.hudCanvas.width=240*S.dpr;S.hudCanvas.height=80*S.dpr;
+    S.hudCx=S.hudCanvas.getContext('2d');S.hudCx.setTransform(S.dpr,0,0,S.dpr,0,0);
     S.hudSprite=new PIXI.Sprite();S.L.hud.addChild(S.hudSprite);
-    S.buf=document.createElement('canvas');S.buf.width=80;S.buf.height=120;
-    S.cx=S.buf.getContext('2d');S.dpr=1;
+    S.buf=document.createElement('canvas');S.buf.width=80*S.dpr;S.buf.height=120*S.dpr;
+    S.cx=S.buf.getContext('2d');S.cx.setTransform(S.dpr,0,0,S.dpr,0,0);
     S.pixiApp.ticker.maxFPS=30;S.pixiReady=true;
     console.log('PixiJS v8 initialized',S.pixiApp.screen.width+'x'+S.pixiApp.screen.height);
   }catch(e){console.error('PixiJS init failed:',e);initCanvasFallback()}
@@ -62,7 +63,7 @@ export function initCanvas(){return initPixi()}
 export function drawCh(px,py,type,wf,dir,work,bub,ag){
   const cx=S.cx,fr=S.fr,c=C[type]||C.agent,s=S.P;
   const OL='#1A1A0A',SK='#FFD8B0';
-  const idle=ag&&ag.st==='idle',mood=ag?ag.mood:0;
+  const idle=ag&&ag.st==='idle';
   const flip=dir<0;
   if(flip){cx.save();cx.translate(px*2,0);cx.scale(-1,1)}
   if(work){
@@ -92,6 +93,7 @@ export function drawCh(px,py,type,wf,dir,work,bub,ag){
     if(flip)cx.restore();
     drawStatusIcon(px+6.5*s,y-7*s,'gear');
     if(bub)drawBub(px,y-9*s,bub);
+    drawWorkerBadge(px,py-10*s,ag,s);
     drawNameTag(px,py+8*s,c);return;
   }
   // Standing/Walking
@@ -111,8 +113,6 @@ export function drawCh(px,py,type,wf,dir,work,bub,ag){
   cx.fillStyle=c.s;cx.fillRect(px-3.5*s,y+2*s,7*s,4*s);
   cx.fillStyle='#FFF';cx.fillRect(px-1.2*s,y+2*s,2.4*s,s*.8);
   let armL=step*.3,armR=-step*.3;
-  if(idle&&mood===1){armL=-2;armR=-2}
-  if(idle&&mood===3){armR=-3}
   cx.fillStyle=OL;
   cx.fillRect(px-4.5*s-1,y+2.5*s+armL-1,1.5*s+2,3.5*s+2);
   cx.fillRect(px+3*s-1,y+2.5*s+armR-1,1.5*s+2,3.5*s+2);
@@ -120,15 +120,7 @@ export function drawCh(px,py,type,wf,dir,work,bub,ag){
   cx.fillRect(px-4.5*s,y+2.5*s+armL,1.5*s,3.5*s);cx.fillRect(px+3*s,y+2.5*s+armR,1.5*s,3.5*s);
   cx.fillStyle=SK;
   cx.fillRect(px-4.5*s,y+5.5*s+armL,1.5*s,1.2*s);cx.fillRect(px+3*s,y+5.5*s+armR,1.5*s,1.2*s);
-  if(idle&&mood===3){
-    cx.fillStyle='#FFF';cx.fillRect(px+3.5*s,y+2*s+armR,2*s,2.5*s);
-    cx.fillStyle='#8B6914';cx.fillRect(px+3.5*s,y+2*s+armR,2*s,.4*s);
-    cx.fillStyle='#6B3A1A';cx.fillRect(px+3.7*s,y+2.4*s+armR,1.6*s,1.6*s);
-    if(fr%40<25){cx.globalAlpha=.4;cx.fillStyle='#FFF';
-      cx.fillRect(px+4*s,y+1.2*s+armR-Math.sin(fr*.1)*s,s*.4,s*.7);
-      cx.fillRect(px+4.5*s,y+.8*s+armR-Math.cos(fr*.12)*s,s*.3,s*.5);cx.globalAlpha=1}
-  }
-  let headOff=0;if(idle&&mood===2)headOff=Math.sin(fr*.04)*2;
+  let headOff=0;
   cx.fillStyle=OL;cx.fillRect(px-5*s-1+headOff,y-5*s-1,10*s+2,7*s+2);
   cx.fillStyle=SK;cx.fillRect(px-5*s+headOff,y-5*s,10*s,7*s);
   cx.fillStyle='#FFAA8840';cx.fillRect(px-4.5*s+headOff,y-.5*s,2*s,1.5*s);cx.fillRect(px+2.5*s+headOff,y-.5*s,2*s,1.5*s);
@@ -136,24 +128,19 @@ export function drawCh(px,py,type,wf,dir,work,bub,ag){
   cx.fillStyle=c.h;cx.fillRect(px-5.5*s+headOff,y-6.5*s,11*s,3.5*s);
   cx.fillRect(px-5.5*s+headOff,y-3.5*s,2*s,2.5*s);cx.fillRect(px+3.5*s+headOff,y-3.5*s,2*s,2.5*s);
   const blk=fr%180>=176;
-  if(!blk&&!(idle&&mood===4)){
+  if(!blk){
     const ex=dir>0?s*.3:dir<0?-s*.3:0;
     cx.fillStyle='#FFF';cx.fillRect(px-3.5*s+headOff,y-3*s,3*s,2.5*s);cx.fillRect(px+.5*s+headOff,y-3*s,3*s,2.5*s);
     cx.fillStyle='#222';cx.fillRect(px-2.5*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);cx.fillRect(px+1.2*s+ex+headOff,y-2.5*s,1.8*s,1.8*s);
     cx.fillStyle='#FFF';cx.fillRect(px-2.2*s+ex+headOff,y-2.5*s,s*.6,s*.6);cx.fillRect(px+1.5*s+ex+headOff,y-2.5*s,s*.6,s*.6);
-  }else if(idle&&mood===4){
-    cx.fillStyle='#FFF';cx.fillRect(px-3.5*s+headOff,y-2.5*s,3*s,1.2*s);cx.fillRect(px+.5*s+headOff,y-2.5*s,3*s,1.2*s);
-    cx.fillStyle='#222';cx.fillRect(px-2.5*s+headOff,y-2*s,1.5*s,s*.8);cx.fillRect(px+1.2*s+headOff,y-2*s,1.5*s,s*.8);
   }else{cx.fillStyle='#222';cx.fillRect(px-3*s+headOff,y-1.8*s,2.5*s,s*.4);cx.fillRect(px+.5*s+headOff,y-1.8*s,2.5*s,s*.4)}
   cx.fillStyle='#CC6644';
-  if(idle&&mood===4){cx.fillRect(px-.5*s+headOff,y+.5*s,s*1.2,s*.8)}
-  else if(idle&&mood===1){cx.fillRect(px-s+headOff,y+.5*s,2*s,s*.3);cx.fillRect(px-.5*s+headOff,y+.7*s,s,s*.2)}
-  else if(walk){cx.fillRect(px-.3*s+headOff,y+.5*s,s*.6,s*.4)}
+  if(walk){cx.fillRect(px-.3*s+headOff,y+.5*s,s*.6,s*.4)}
   else{cx.fillRect(px-.5*s+headOff,y+.5*s,s,s*.4)}
   drawAccessory(px+headOff,y,type,s,false);
-  if(ag&&ag.compFx>0){cx.globalAlpha=ag.compFx/20;cx.fillStyle='#FFD080';cx.fillRect(px-6*s,y-7*s,12*s,16*s);cx.globalAlpha=1}
   if(flip)cx.restore();
-  if(idle){if(mood===4)drawStatusIcon(px+6*s,y-7*s,'zzz');else if(mood===0)drawStatusIcon(px+6*s,y-7*s,'idle')}
+  if(idle){drawStatusIcon(px+6*s,y-7*s,'idle')}
+  drawWorkerBadge(px,y-9*s,ag,s);
   drawNameTag(px,y+9*s,c);
 }
 
@@ -171,9 +158,25 @@ function drawAccessory(px,y,type,s,sitting){
   }
 }
 
+function drawWorkerBadge(px,py,ag,s){
+  if(!S.activeWorkerAgents||!ag)return;
+  const wrole=S.activeWorkerAgents[ag.t];
+  if(!wrole)return;
+  const wr=WORKER_ROLES[wrole];
+  if(!wr)return;
+  const cx=S.cx;
+  cx.save();
+  cx.fillStyle=wr.color;
+  cx.beginPath();cx.arc(px,py,3.5*s,0,Math.PI*2);cx.fill();
+  cx.shadowColor=wr.color;cx.shadowBlur=4*s;
+  cx.fillStyle='#FFF';cx.font=`bold ${3*s}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillText(wr.name[0],px,py);
+  cx.restore();
+}
+
 function drawNameTag(px,y,c){
   const cx=S.cx;const nm=c.l;
-  cx.font='bold 11px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif';cx.textAlign='center';
+  cx.font='bold 12px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif';cx.textAlign='center';
   const nw=cx.measureText(nm).width+14,tx=px-nw/2,ty=y,th=16,r3=4;
   cx.fillStyle='#00000018';cx.beginPath();
   cx.moveTo(tx+r3+1,ty+1);cx.lineTo(tx+nw-r3+1,ty+1);cx.arc(tx+nw-r3+1,ty+r3+1,r3,-Math.PI/2,0);
@@ -215,9 +218,15 @@ function drawStatusIcon(x,y,type){
 
 function drawBub(x,y,t){
   const cx=S.cx;
-  const d=t.length>16?t.slice(0,16)+'\u2026':t;
-  cx.font='bold 12px -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif';
-  const tw=cx.measureText(d).width,w=Math.max(tw+16,44),h=22,bx2=x-w/2,by=y-h,r=5;
+  const full=t.length>36?t.slice(0,36)+'\u2026':t;
+  // Split into tool label (short) and detail
+  const slashIdx=full.indexOf(':');
+  const line1=slashIdx>0&&slashIdx<12?full.slice(0,slashIdx):'';
+  const line2=line1?full.slice(slashIdx+1).trim():full;
+  const twoLine=!!line1;
+  cx.font='bold 11px monospace';
+  const tw=cx.measureText(line2).width;
+  const w=Math.max(tw+16,50),h=twoLine?30:22,bx2=x-w/2,by=y-h,r=5;
   cx.fillStyle='#1A1A0A30';cx.fillRect(bx2+1,by+1,w,h);
   cx.fillStyle='#FFF6E8';cx.beginPath();
   cx.moveTo(bx2+r,by);cx.lineTo(bx2+w-r,by);cx.arc(bx2+w-r,by+r,r,-Math.PI/2,0);
@@ -228,7 +237,10 @@ function drawBub(x,y,t){
   cx.fillStyle='#D4A032';cx.fillRect(bx2+2,by,w-4,2);
   cx.fillStyle='#FFF6E8';cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x+3,y);cx.lineTo(x,y+4);cx.fill();
   cx.strokeStyle='#C4A06A';cx.lineWidth=1;cx.beginPath();cx.moveTo(x-3,y);cx.lineTo(x,y+4);cx.lineTo(x+3,y);cx.stroke();
-  cx.textAlign='center';cx.textBaseline='middle';cx.fillStyle='#8B6F47';cx.fillText(d,x,y-h/2);cx.textBaseline='alphabetic';
+  cx.textAlign='center';cx.textBaseline='middle';
+  if(twoLine){cx.fillStyle='#999999';cx.font='bold 9px sans-serif';cx.fillText(line1,x,by+10);cx.fillStyle='#5A4020';cx.font='bold 11px monospace';cx.fillText(line2.slice(0,28),x,by+22);}
+  else{cx.fillStyle='#8B6F47';cx.fillText(full,x,y-h/2);}
+  cx.textBaseline='alphabetic';
 }
 
 // ── Background cache ──
@@ -237,10 +249,8 @@ export function buildBg(w,h){
   const o=document.createElement('canvas');o.width=w*S.dpr;o.height=h*S.dpr;
   const g=o.getContext('2d');g.setTransform(S.dpr,0,0,S.dpr,0,0);
   const fy=h*.55,s=S.P;
-  const _cal=getGameCalendar(),_seasonBg=SEASON_BG[_cal.season]||SEASON_BG['\uBD04'];
-  S.currentSeason=_cal.season;
   const fl=S.viewMode==='floor'?FLOORS[S.currentFloor]:null;
-  const sb=fl?{wall:fl.colors.wall,floor:fl.colors.floor,sky:_seasonBg.sky,accent:fl.colors.accent}:_seasonBg;
+  const sb=fl?{wall:fl.colors.wall,floor:fl.colors.floor,sky:DEFAULT_SKY,accent:fl.colors.accent}:{wall:['#FFF5E8','#F0E8D8','#E0D0B8'],floor:['#5AAE55','#4D9A48','#3D8A38'],sky:DEFAULT_SKY,accent:'#44DD66'};
   const wallGrad=g.createLinearGradient(0,0,0,fy);
   wallGrad.addColorStop(0,sb.wall[0]);wallGrad.addColorStop(.7,sb.wall[1]);wallGrad.addColorStop(1,sb.wall[2]);
   g.fillStyle=wallGrad;g.fillRect(0,0,w,fy);

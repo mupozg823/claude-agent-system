@@ -689,7 +689,38 @@ class CommandExecutor {
     };
   }
 
+  // ── Command validation (defense-in-depth) ──
+  static SHELL_BLOCKED = [
+    /\brm\s+(-\w*r\w*\s+)?(-\w*f\w*\s+)?\//,
+    /\brm\s+-rf\s+[~$%]/,
+    /\bgit\s+(push\s+--force|push\s+-f|reset\s+--hard)\b/,
+    /\bDROP\s+(DATABASE|TABLE)\b/i,
+    /\bcurl\s+[^|]*\|\s*(ba)?sh\b/,
+    /\bwget\s+[^|]*\|\s*(ba)?sh\b/,
+    /\bshutdown\b/, /\breboot\b/, /\bnpm\s+publish\b/,
+    /\bpowershell\b.*(-c|-Command|-EncodedCommand)\b/i,
+    /\bcmd\s+\/[ck]\b/i,
+    /\beval\b.*\brm\b/i,
+    /\bformat\s+[A-Z]:/i,
+  ];
+
+  _validateCommand(command) {
+    if (!command || typeof command !== 'string') return 'empty command';
+    const trimmed = command.trim();
+    for (const p of CommandExecutor.SHELL_BLOCKED) {
+      if (p.test(trimmed)) return `blocked pattern: ${p}`;
+    }
+    return null; // valid
+  }
+
   async _shell(command, sessionId) {
+    // Defense-in-depth: validate even after isCommandAllowed
+    const blocked = this._validateCommand(command);
+    if (blocked) {
+      log('warn', `Shell command blocked: ${blocked} — ${(command || '').slice(0, 80)}`);
+      return { success: false, output: `Command blocked: ${blocked}`, exitCode: 127 };
+    }
+
     return new Promise((resolve) => {
       try {
         const result = execSync(command, {
@@ -717,6 +748,8 @@ class CommandExecutor {
         cwd: HOME,
       });
       child.unref();
+      // Close the fd to avoid leak (child inherits it)
+      try { fs.closeSync(out); } catch {}
       log('info', `Orchestrator spawned (PID: ${child.pid}): ${goal}`);
       resolve({ success: true, output: `Orchestrator started (PID: ${child.pid})`, exitCode: 0 });
     });
@@ -935,9 +968,24 @@ class Gateway extends EventEmitter {
 
     this.wss = new WebSocket.Server({ server: this.server });
 
+    // Rate limiting: max 30 commands per minute per client
+    const rateLimitMap = new Map(); // clientId → { count, resetAt }
+    const RATE_LIMIT = 30;
+    const RATE_WINDOW = 60_000;
+
     this.wss.on('connection', (ws, req) => {
       const clientId = `ws-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
       ws._clientId = clientId;
+      ws._rateCheck = () => {
+        const now = Date.now();
+        let bucket = rateLimitMap.get(clientId);
+        if (!bucket || now > bucket.resetAt) {
+          bucket = { count: 0, resetAt: now + RATE_WINDOW };
+          rateLimitMap.set(clientId, bucket);
+        }
+        bucket.count++;
+        return bucket.count <= RATE_LIMIT;
+      };
       this.wsClients.add(ws);
       log('info', `WS client connected: ${clientId}`);
 
@@ -1057,6 +1105,12 @@ class Gateway extends EventEmitter {
 
   // ── Frame Protocol Handler ──
   async _handleFrame(ws, frame) {
+    // Rate limit check
+    if (ws._rateCheck && !ws._rateCheck()) {
+      this._sendFrame(ws, { type: 'res', id: frame.id || null, ok: false, error: 'Rate limit exceeded (30/min)' });
+      return;
+    }
+
     if (frame.type === 'req') {
       const { id, method, params } = frame;
       try {

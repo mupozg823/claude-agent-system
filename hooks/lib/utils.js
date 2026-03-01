@@ -104,9 +104,12 @@ function ensureDirs(...dirs) {
 
 function runEngine(command, ...args) {
   try {
-    const escaped = args.map(a => `"${String(a).replace(/"/g, '\\"')}"`).join(' ');
-    const cmd = `node "${ENGINE}" ${command} ${escaped}`;
-    const result = execSync(cmd, { encoding: 'utf8', timeout: 10000 });
+    const { execFileSync } = require('child_process');
+    // Use execFileSync with args array to avoid shell injection
+    const result = execFileSync('node', [ENGINE, command, ...args.map(String)], {
+      encoding: 'utf8',
+      timeout: 10000,
+    });
     try { return JSON.parse(result.trim()); } catch { return result.trim(); }
   } catch (e) {
     return null;

@@ -59,7 +59,8 @@ function executeTask(task) {
   switch (task.action) {
     case 'cleanup old audit logs (30 days), checkpoints (14 days), markers (7 days)':
       try {
-        const result = execSync(`node "${ENGINE}" cleanup`, { encoding: 'utf8', timeout: 10000 });
+        const { execFileSync } = require('child_process');
+        const result = execFileSync('node', [ENGINE, 'cleanup'], { encoding: 'utf8', timeout: 10000 });
         log('cleanup', result.trim());
         return { success: true, result: result.trim() };
       } catch (e) {
@@ -69,7 +70,8 @@ function executeTask(task) {
 
     case 'check ~/.claude/queue/commands.jsonl for pending items':
       try {
-        const result = execSync(`node "${ENGINE}" queue-list`, { encoding: 'utf8', timeout: 5000 });
+        const { execFileSync: efs } = require('child_process');
+        const result = efs('node', [ENGINE, 'queue-list'], { encoding: 'utf8', timeout: 5000 });
         const items = JSON.parse(result);
         log('queue-check', `${items.length} pending`);
         return { success: true, pending: items.length };

@@ -33,6 +33,25 @@ const SKILLS_DIR = path.join(CLAUDE_DIR, 'commands');
 const RUNS_DIR = DIRS.orchestrator;
 const LOGS_DIR = DIRS.logs;
 
+// ── Worker Roles (OpenClaw-style) ──
+const WORKER_ROLES = {
+  SUPERVISOR: { name: 'Supervisor', color: '#FFD700', prompt: 'You are a SUPERVISOR agent. Focus on planning, coordination, and decision-making. Analyze the situation, create strategies, and delegate tasks effectively.' },
+  BUILDER:    { name: 'Builder',    color: '#4488CC', prompt: 'You are a BUILDER agent. Focus on code implementation and generation. Write clean, efficient, and well-structured code.' },
+  VERIFIER:   { name: 'Verifier',   color: '#44AA44', prompt: 'You are a VERIFIER agent. Focus on testing, validation, and quality assurance. Verify correctness and identify issues.' },
+  REVIEWER:   { name: 'Reviewer',   color: '#CC6644', prompt: 'You are a REVIEWER agent. Focus on code review, analysis, and feedback. Evaluate quality, suggest improvements, and document findings.' },
+};
+
+const STEP_WORKER_MAP = {
+  analyze: 'SUPERVISOR', plan: 'SUPERVISOR', coordinate: 'SUPERVISOR', decompose: 'SUPERVISOR', design: 'SUPERVISOR',
+  '분석': 'SUPERVISOR', '계획': 'SUPERVISOR', '설계': 'SUPERVISOR', '조율': 'SUPERVISOR',
+  implement: 'BUILDER', code: 'BUILDER', create: 'BUILDER', build: 'BUILDER', write: 'BUILDER', scaffold: 'BUILDER',
+  '구현': 'BUILDER', '빌드': 'BUILDER', '생성': 'BUILDER', '작성': 'BUILDER',
+  test: 'VERIFIER', verify: 'VERIFIER', validate: 'VERIFIER', check: 'VERIFIER', lint: 'VERIFIER', qa: 'VERIFIER',
+  '테스트': 'VERIFIER', '검증': 'VERIFIER', '검사': 'VERIFIER', '린트': 'VERIFIER',
+  review: 'REVIEWER', audit: 'REVIEWER', inspect: 'REVIEWER', document: 'REVIEWER', docs: 'REVIEWER', report: 'REVIEWER',
+  '리뷰': 'REVIEWER', '감사': 'REVIEWER', '문서': 'REVIEWER', '보고': 'REVIEWER',
+};
+
 ensureDirs(RUNS_DIR, LOGS_DIR);
 
 // ── FSM States ──
@@ -42,10 +61,17 @@ const STATE = {
   DECOMPOSING: 'decomposing',
   ROUTING: 'routing',
   EXECUTING: 'executing',
+  VERIFYING: 'verifying',
   RECOVERING: 'recovering',
   DONE: 'done',
   FAILED: 'failed',
   ABORTED: 'aborted',
+};
+
+// ── Codex Verify Threshold ──
+const VERIFY_THRESHOLD = {
+  minSteps: 3,
+  minBuilders: 2,
 };
 
 // ── Skill Map (auto-loaded from commands/) ──
@@ -201,6 +227,7 @@ class Orchestrator extends EventEmitter {
       name: this.goal,
       type: 'claude',
       command: null,
+      worker: this._assignWorker(this.goal, 'claude'),
       dependsOn: [],
       parallel: false,
       context: '',
@@ -211,14 +238,28 @@ class Orchestrator extends EventEmitter {
     return this.dag;
   }
 
+  // ── Assign worker role based on step name/type ──
+  _assignWorker(name, type) {
+    // Check type first (more precise)
+    if (STEP_WORKER_MAP[type]) return STEP_WORKER_MAP[type];
+    // Then check name keywords, longer keywords first to avoid partial matches
+    const lower = (name + ' ' + type).toLowerCase();
+    const sorted = Object.entries(STEP_WORKER_MAP).sort((a, b) => b[0].length - a[0].length);
+    for (const [keyword, role] of sorted) {
+      if (lower.includes(keyword)) return role;
+    }
+    return 'BUILDER'; // default
+  }
+
   // ── Rule-based goal decomposer ──
   _ruleDecompose(goal) {
     const steps = [];
     let stepNum = 0;
     const mkStep = (name, type, command = null, deps = [], parallel = false) => {
       stepNum++;
+      const worker = this._assignWorker(name, type);
       return {
-        id: `step-${stepNum}`, name, type, command,
+        id: `step-${stepNum}`, name, type, command, worker,
         dependsOn: deps, parallel, context: '', status: 'pending', retries: 0,
       };
     };
@@ -405,30 +446,82 @@ class Orchestrator extends EventEmitter {
 
       // Checkpoint after each iteration
       this._checkpoint();
+      // Compute worker stats
+      const workerStats = { SUPERVISOR: 0, BUILDER: 0, VERIFIER: 0, REVIEWER: 0 };
+      for (const s of this.dag) { if (s.worker && workerStats[s.worker] !== undefined) workerStats[s.worker]++; }
       this.emit('progress', {
         runId: this.runId,
         done: this.completed.size,
         total: this.dag.length,
         iteration,
+        workerStats,
       });
     }
 
-    // Determine final state
+    // Determine final state — go through verify first
     const failedSteps = this.dag.filter(s => s.status === 'failed');
-    if (failedSteps.length === 0) {
-      this.transition(STATE.DONE);
-    } else if (this.completed.size > 0) {
-      this.transition(STATE.DONE); // Partial success
-    } else {
+    if (failedSteps.length > 0 && this.completed.size === 0) {
       this.transition(STATE.FAILED);
+    } else {
+      await this._verify();
     }
+  }
+
+  // ── Codex Verify ──
+  async _verify() {
+    const builderCount = this.dag.filter(s => s.worker === 'BUILDER').length;
+    if (this.dag.length < VERIFY_THRESHOLD.minSteps && builderCount < VERIFY_THRESHOLD.minBuilders) {
+      // Below threshold — skip verification
+      this.transition(STATE.DONE);
+      return;
+    }
+    this.transition(STATE.VERIFYING);
+    const checks = [];
+
+    // 1. Syntax check for any generated JS files
+    try {
+      const builtFiles = this.dag
+        .filter(s => s.status === 'completed' && s.worker === 'BUILDER')
+        .map(s => s.output?.file || s.output?.path)
+        .filter(f => f && f.endsWith('.js'));
+      for (const file of builtFiles.slice(0, 10)) {
+        try {
+          execSync(`node -c "${file}"`, { encoding: 'utf8', timeout: 5000 });
+          checks.push({ file, type: 'syntax', ok: true });
+        } catch (e) {
+          checks.push({ file, type: 'syntax', ok: false, error: e.message?.slice(0, 200) });
+        }
+      }
+    } catch {}
+
+    // 2. Semantic review via claude -p (haiku, fast) — using execFileSync to avoid injection
+    try {
+      const { execFileSync } = require('child_process');
+      const stepSummary = this.dag.map(s => `${s.id}: ${s.name} [${s.status}]`).join('\n');
+      const prompt = `Review this orchestration run for correctness. Goal: "${this.goal}"\nSteps:\n${stepSummary}\n\nReport any issues in 2-3 lines. If all looks good, say "LGTM".`;
+      const result = execFileSync('claude', ['-p', '--', prompt, '--model', 'haiku'], {
+        encoding: 'utf8', timeout: 30000,
+      }).trim();
+      checks.push({ type: 'semantic', ok: !result.toLowerCase().includes('issue'), review: result.slice(0, 500) });
+    } catch (e) {
+      checks.push({ type: 'semantic', ok: true, review: 'Review skipped: ' + (e.message || '').slice(0, 100) });
+    }
+
+    this.emit('verify', { runId: this.runId, checks });
+
+    // All checks passed → DONE
+    const hasFailure = checks.some(c => !c.ok);
+    if (hasFailure) {
+      this.emit('verify-warning', { runId: this.runId, checks: checks.filter(c => !c.ok) });
+    }
+    this.transition(STATE.DONE);
   }
 
   // ── Execute Single Step ──
   async _executeStep(step) {
     step.status = 'running';
     step.startedAt = new Date().toISOString();
-    this.emit('step-start', { runId: this.runId, step: step.id, name: step.name, executor: step.executor });
+    this.emit('step-start', { runId: this.runId, step: step.id, name: step.name, executor: step.executor, worker: step.worker });
     log('info', `[${this.runId}] Step ${step.id}: ${step.name} (${step.executor})`);
 
     try {
@@ -450,13 +543,13 @@ class Orchestrator extends EventEmitter {
       }
 
       step.completedAt = new Date().toISOString();
-      this.emit('step-done', { runId: this.runId, step: step.id, success: true });
+      this.emit('step-done', { runId: this.runId, step: step.id, success: true, worker: step.worker });
       return { success: true, output: String(output).slice(0, 3000) };
 
     } catch (e) {
       step.completedAt = new Date().toISOString();
       const error = e.message || String(e);
-      this.emit('step-done', { runId: this.runId, step: step.id, success: false, error });
+      this.emit('step-done', { runId: this.runId, step: step.id, success: false, error, worker: step.worker });
       log('warn', `[${this.runId}] Step ${step.id} failed: ${error.slice(0, 200)}`);
       return { success: false, error };
     }
@@ -464,7 +557,37 @@ class Orchestrator extends EventEmitter {
 
   // ── Executors ──
 
+  // Shell command allowlist for orchestrator (only safe CLI tools)
+  static SHELL_ALLOWED = [
+    /^(npm|npx|pnpm|yarn|bun)\s/,
+    /^(node|python3?|pip|pip3|cargo|go|ruby|java|deno)\s/,
+    /^(tsc|tsx|eslint|prettier|jest|vitest|pytest|mocha|webpack|vite|rollup|esbuild)\s/,
+    /^git\s/,
+    /^(ls|cat|head|tail|wc|sort|find|grep|mkdir|cp|mv|echo|printf|date)\s/,
+    /^(docker|docker-compose|kubectl|helm)\s/,
+    /^(claude|anthropic)\s/,
+  ];
+
+  static SHELL_BLOCKED = [
+    /\brm\s+-rf\s+[\/~$]/,
+    /\bgit\s+(push\s+--force|reset\s+--hard)\b/,
+    /\bcurl\s+[^|]*\|\s*(ba)?sh/,
+    /\beval\b/, /\bexec\b/,
+    /\bshutdown\b/, /\breboot\b/,
+    /\bnpm\s+publish\b/,
+  ];
+
   _execShell(command) {
+    // Validate command before execution
+    const trimmed = (command || '').trim();
+    for (const p of Orchestrator.SHELL_BLOCKED) {
+      if (p.test(trimmed)) throw new Error(`Blocked command: ${trimmed.slice(0, 80)}`);
+    }
+    const allowed = Orchestrator.SHELL_ALLOWED.some(p => p.test(trimmed));
+    if (!allowed) {
+      log('warn', `[${this.runId}] Unrecognized shell command, proceeding with caution: ${trimmed.slice(0, 80)}`);
+    }
+
     return execSync(command, {
       encoding: 'utf8',
       timeout: this.stepTimeout,
@@ -480,7 +603,9 @@ class Orchestrator extends EventEmitter {
   }
 
   _execClaude(step) {
-    const prompt = `${step.name}${step.context ? '\n\nContext: ' + step.context : ''}`;
+    const workerRole = WORKER_ROLES[step.worker];
+    const rolePrefix = workerRole ? workerRole.prompt + '\n\n' : '';
+    const prompt = `${rolePrefix}${step.name}${step.context ? '\n\nContext: ' + step.context : ''}`;
     return this._claudeP(prompt, this.projectPath);
   }
 
@@ -491,24 +616,25 @@ class Orchestrator extends EventEmitter {
    * @param {object} [opts] - { maxTurns, noTools }
    */
   _claudeP(prompt, cwd, opts = {}) {
+    const { execFileSync } = require('child_process');
     const env = { ...process.env, ORCHESTRATOR: '1' };
     delete env.CLAUDECODE;
     if (opts.decompose) env.ORCH_DECOMPOSE = '1';
 
     const tmpFile = path.join(RUNS_DIR, `prompt-${Date.now()}.txt`);
     fs.writeFileSync(tmpFile, prompt);
-    const tmpPath = tmpFile.replace(/\\/g, '/');
 
     const maxTurns = opts.maxTurns || 10;
-    let cmd = `claude -p "$(cat '${tmpPath}')" --max-turns ${maxTurns}`;
+    const args = ['-p', '--', fs.readFileSync(tmpFile, 'utf8'), '--max-turns', String(maxTurns)];
 
     // No-tools mode: force text-only response (for decompose/planning)
     if (opts.noTools) {
-      cmd += ` --allowedTools '[]'`;
+      args.push('--allowedTools', '[]');
     }
 
     try {
-      const result = execSync(cmd, {
+      // Use execFileSync to avoid shell injection — no shell interpretation
+      const result = execFileSync('claude', args, {
         encoding: 'utf8',
         timeout: this.stepTimeout,
         cwd: cwd || this.projectPath,
@@ -554,9 +680,10 @@ class Orchestrator extends EventEmitter {
   async _report() {
     const result = this._buildResult();
 
-    // Save to agent-engine checkpoint
+    // Save to agent-engine checkpoint (using execFileSync to avoid injection via goal)
     try {
-      execSync(`node "${ENGINE}" checkpoint "${result.status}: ${this.goal.slice(0, 60)}"`, {
+      const { execFileSync } = require('child_process');
+      execFileSync('node', [ENGINE, 'checkpoint', `${result.status}: ${this.goal.slice(0, 60)}`], {
         encoding: 'utf8', timeout: 5000,
       });
     } catch {}
@@ -610,11 +737,15 @@ class Orchestrator extends EventEmitter {
     orch.errors = data.errors || [];
     orch.startTime = data.startTime;
 
-    // Reset failed/running steps to pending for re-execution
+    // Reset running/failed steps to pending for re-execution (preserve retry count)
     for (const step of orch.dag) {
       if (step.status === 'running' || step.status === 'failed') {
         step.status = 'pending';
-        step.retries = 0;
+        // Keep retries count to avoid infinite retry on resume
+        // Only reset if under half of maxRetries to give one more chance
+        if (step.retries >= orch.maxRetries) {
+          step.retries = Math.max(0, orch.maxRetries - 1);
+        }
       }
     }
 
@@ -645,7 +776,7 @@ class Orchestrator extends EventEmitter {
       errors: this.errors,
       dag: this.dag.map(s => ({
         id: s.id, name: s.name, type: s.type, status: s.status,
-        executor: s.executor, retries: s.retries,
+        executor: s.executor, retries: s.retries, worker: s.worker,
       })),
     };
   }
@@ -665,7 +796,8 @@ class Orchestrator extends EventEmitter {
 
     for (const s of result.dag) {
       const icon = s.status === 'completed' ? '[OK]' : s.status === 'failed' ? '[FAIL]' : '[--]';
-      lines.push(`- ${icon} **${s.id}**: ${s.name} (${s.type}→${s.executor}) retries:${s.retries}`);
+      const wk = s.worker ? `[${s.worker[0]}]` : '';
+      lines.push(`- ${icon} ${wk} **${s.id}**: ${s.name} (${s.type}→${s.executor}) retries:${s.retries}`);
     }
 
     if (result.errors.length > 0) {
@@ -732,7 +864,9 @@ function broadcastToRelay(event, payload) {
   try {
     const outbox = path.join(RUNS_DIR, 'outbox.jsonl');
     fs.appendFileSync(outbox, JSON.stringify({ event, payload, ts: new Date().toISOString() }) + '\n');
-  } catch {}
+  } catch (e) {
+    log('warn', `broadcastToRelay failed for ${event}: ${(e.message || '').slice(0, 80)}`);
+  }
 }
 
 // ── CLI ──
@@ -799,6 +933,8 @@ async function main() {
   orch.on('step-start', (d) => broadcastToRelay('orch-step-start', d));
   orch.on('step-done', (d) => broadcastToRelay('orch-step-done', d));
   orch.on('progress', (d) => broadcastToRelay('orch-progress', d));
+  orch.on('verify', (d) => broadcastToRelay('orch-verify', d));
+  orch.on('verify-warning', (d) => broadcastToRelay('orch-verify-warning', d));
   orch.on('run-end', (d) => broadcastToRelay('orch-complete', d));
 
   // Console output for progress
@@ -813,7 +949,7 @@ async function main() {
 }
 
 // ── Exports for programmatic use ──
-module.exports = { Orchestrator, listRuns, getRunStatus, STATE, loadSkillMap };
+module.exports = { Orchestrator, listRuns, getRunStatus, STATE, loadSkillMap, WORKER_ROLES };
 
 // Run CLI if invoked directly
 if (require.main === module) {

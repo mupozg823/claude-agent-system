@@ -29,6 +29,9 @@ const AUDIT_DIR = DIRS.audit;
 const BLOCK = [
   /\brm\s+(-\w*r\w*\s+)?(-\w*f\w*\s+)?\//,
   /\brm\s+-rf\s+[~$]/,
+  /\brm\s+-rf\s+%USERPROFILE%/i,
+  /\brm\s+-rf\s+"\$HOME"/,
+  /\brm\s+-rf\s+\$HOME\b/,
   /\bgit\s+push\s+(--force|-f)\s+origin\s+(main|master)\b/,
   /\bgit\s+reset\s+--hard\b/,
   /\bDROP\s+(DATABASE|TABLE|SCHEMA)\b/i,
@@ -55,6 +58,15 @@ const INDIRECT_DANGER = [
   /\bxargs\s+.*\brm\s+-rf\b/,
   /\bfind\s+.*-exec\s+rm\s+-rf/,
   /\benv\s+.*\brm\s+-rf\b/,
+  // powershell/cmd arbitrary execution
+  /\bpowershell\b.*\s+(-c|-Command|-EncodedCommand|-e)\s/i,
+  /\bpwsh\b.*\s+(-c|-Command|-EncodedCommand|-e)\s/i,
+  /\bcmd\s+\/[ck]\b/i,
+  // start launching shells
+  /\bstart\s+(\/\w\s+)*(cmd|powershell|pwsh|bash)\b/i,
+  // Command substitution with network commands (data exfil)
+  /\$\([^)]*\b(curl|wget|nc|ncat)\b/,
+  /`[^`]*\b(curl|wget|nc|ncat)\b[^`]*`/,
 ];
 
 // ── 안전 패턴 (자동 승인) ──
@@ -95,14 +107,14 @@ const SAFE = [
   // Containers
   /^\s*(docker|docker-compose|podman|kubectl|helm)\b/,
 
-  // Windows-specific
-  /^\s*(systeminfo|wmic|powershell|pwsh)\b/,
+  // Windows-specific (powershell/cmd REMOVED — can execute arbitrary code)
+  /^\s*(systeminfo|wmic)\b/,
   /^\s*(winget|choco|scoop)\b/,
-  /^\s*(start|explorer|cmd)\b/,
-  /^\s*(tasklist|taskkill|ps|kill)\b/,
+  /^\s*(start|explorer)\b(?!.*\b(cmd|powershell|pwsh|bash)\b)/,
+  /^\s*(tasklist|ps)\b/,
+  /^\s*(taskkill|kill)\b/,
   /^\s*(schtasks|crontab)\b/,
-  /^\s*(reg|setx|attrib|icacls|net)\b/,
-  /^\s*cmdkey\b/,
+  /^\s*(reg\s+query|attrib|icacls)\b/,
 
   // GitHub CLI (also match quoted full paths)
   /^\s*gh\s/,
@@ -269,7 +281,7 @@ async function main() {
     }
   }
 
-  // 3) 파이프 체인 우측 분석
+  // 3) 파이프 체인 우측 분석 (BLOCK + INDIRECT_DANGER)
   if (cmd.includes('|')) {
     const parts = cmd.split('|').map(s => s.trim());
     for (let i = 1; i < parts.length; i++) {
@@ -277,6 +289,12 @@ async function main() {
         if (p.test(parts[i])) {
           log({ ts, tool: 'Bash', cmd: cmd.slice(0, 500), decision: 'deny', reason: 'pipe_danger' });
           return out(deny(cmd, '파이프 우측 위험'));
+        }
+      }
+      for (const p of INDIRECT_DANGER) {
+        if (p.test(parts[i])) {
+          log({ ts, tool: 'Bash', cmd: cmd.slice(0, 500), decision: 'deny', reason: 'pipe_indirect_danger' });
+          return out(deny(cmd, '파이프 우측 간접 위험'));
         }
       }
     }

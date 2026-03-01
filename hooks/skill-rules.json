@@ -322,6 +322,13 @@
       "patterns": ["프롬프트.*최적화", "프롬프트.*개선", "토큰.*절약", "prompt.*optim"],
       "priority": 55,
       "category": "research"
+    },
+    {
+      "name": "orchestrate",
+      "keywords": ["오케스트레이션", "자동 실행", "orchestrate", "DAG", "파이프라인"],
+      "patterns": ["자동.*실행", "오케스트.*실행", "orchestrat", "DAG.*생성", "파이프라인.*실행"],
+      "priority": 70,
+      "category": "workflow"
     }
   ],
   "categories": {

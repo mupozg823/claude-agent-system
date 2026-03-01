@@ -272,18 +272,21 @@ function laneNext(sessionId) {
     };
   }
 
-  // Check lock - serial execution
+  // Check lock - serial execution (atomic: use O_EXCL to avoid TOCTOU race)
   const lock = lockFile(sessionId);
-  if (fs.existsSync(lock)) {
-    try {
+
+  // Check and clean stale lock
+  try {
+    if (fs.existsSync(lock)) {
       const lockData = JSON.parse(fs.readFileSync(lock, 'utf8'));
-      // Stale lock check (5 min timeout)
       if (Date.now() - new Date(lockData.ts).getTime() < 300000) {
         return { locked: true, lockedBy: lockData.id, lockedAt: lockData.ts };
       }
       // Stale lock - remove it
       fs.unlinkSync(lock);
-    } catch { fs.unlinkSync(lock); }
+    }
+  } catch {
+    try { fs.unlinkSync(lock); } catch {}
   }
 
   // Get next pending (priority: urgent > high > normal > low)
@@ -295,8 +298,18 @@ function laneNext(sessionId) {
 
   const next = pending[0];
 
-  // Acquire lock
-  fs.writeFileSync(lock, JSON.stringify({ id: next.id, ts: new Date().toISOString() }));
+  // Atomic lock acquisition: O_EXCL fails if file already exists (prevents TOCTOU race)
+  try {
+    const fd = fs.openSync(lock, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL);
+    fs.writeSync(fd, JSON.stringify({ id: next.id, ts: new Date().toISOString() }));
+    fs.closeSync(fd);
+  } catch (e) {
+    if (e.code === 'EEXIST') {
+      // Another process acquired the lock between our check and acquire
+      return { locked: true, lockedBy: 'concurrent', lockedAt: new Date().toISOString() };
+    }
+    throw e;
+  }
 
   // Register in global running list
   globalState.running.push({

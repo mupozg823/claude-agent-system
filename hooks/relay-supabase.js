@@ -356,8 +356,9 @@ function isCommandAllowed(command) {
   const trimmed = command.trim();
   if (BLOCKED_PATTERNS.some(p => p.test(trimmed))) return false;
   if (ALLOWED_COMMANDS.some(p => p.test(trimmed))) return true;
-  // Default: queue it (agent-engine queue is safe)
-  return true;
+  // Default: REJECT unknown commands (defense-in-depth)
+  log('warn', `Command rejected (not in allowlist): ${trimmed.slice(0, 80)}`);
+  return false;
 }
 
 // ── Main Relay ──
@@ -421,6 +422,8 @@ async function main() {
         cwd: HOME,
       });
       child.unref();
+      // Close fd to avoid leak (child inherits it)
+      try { fs.closeSync(out); } catch {}
       log('info', `Orchestrator spawned (PID: ${child.pid})`);
       await broadcast('command-result', {
         id, command, result: `Orchestrator started (PID: ${child.pid}): ${goal}`, exitCode: 0,
@@ -589,6 +592,17 @@ async function main() {
         log('info', `Worker executing: ${item.command}`);
         await broadcast('lane-executing', { id: item.id, command: item.command });
 
+        // Re-validate before execution (defense-in-depth)
+        if (!isCommandAllowed(item.command)) {
+          runEngine('lane-fail', config.sessionId, item.id, 'blocked by allowlist');
+          log('warn', `Worker blocked: ${item.command}`);
+          await broadcast('command-result', {
+            id: item.id, command: item.command,
+            result: 'Command blocked by security policy', exitCode: 127,
+          });
+          continue;
+        }
+
         try {
           const result = execSync(item.command, {
             encoding: 'utf8',
@@ -666,7 +680,9 @@ async function main() {
           if (msg.event && msg.payload) {
             await broadcast(msg.event, msg.payload);
           }
-        } catch {}
+        } catch (parseErr) {
+          log('warn', `Outbox JSON parse error: ${(parseErr.message || '').slice(0, 60)}`);
+        }
       }
     } catch {}
   }, 3_000); // 3s poll
