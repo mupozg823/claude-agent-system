@@ -39,7 +39,34 @@ function checkAuth(req) {
 const AUDIT_DIR = DIRS.audit;
 const CHECKPOINT_DIR = DIRS.checkpoints;
 const QUEUE_DIR = DIRS.queue;
-const DASHBOARD = path.join(CLAUDE_DIR, 'dashboard.html');
+// Prefer dashboard-ops.html (PixiJS kairosoft-style) over legacy dashboard.html
+const DASHBOARD_OPS = path.join(CLAUDE_DIR, 'dashboard-ops.html');
+const DASHBOARD_LEGACY = path.join(CLAUDE_DIR, 'dashboard.html');
+const DASHBOARD = fs.existsSync(DASHBOARD_OPS) ? DASHBOARD_OPS : DASHBOARD_LEGACY;
+const SUPABASE_CONFIG = path.join(CLAUDE_DIR, '.supabase-config.json');
+
+function readSupabaseConfig() {
+  try {
+    if (!fs.existsSync(SUPABASE_CONFIG)) return null;
+    const cfg = JSON.parse(fs.readFileSync(SUPABASE_CONFIG, 'utf8'));
+    if (cfg.url && cfg.anonKey && cfg.sessionId) return cfg;
+    return null;
+  } catch { return null; }
+}
+
+function injectSupabaseConfig(html) {
+  const cfg = readSupabaseConfig();
+  if (!cfg) return html;
+  const safeUrl = cfg.url.replace(/'/g, "\\'");
+  const safeKey = cfg.anonKey.replace(/'/g, "\\'");
+  const safeSid = cfg.sessionId.replace(/'/g, "\\'");
+  const script = `<script>/* auto-inject supabase config */
+if(!localStorage.getItem('ops_sb_url'))localStorage.setItem('ops_sb_url','${safeUrl}');
+if(!localStorage.getItem('ops_sb_key'))localStorage.setItem('ops_sb_key','${safeKey}');
+if(!localStorage.getItem('ops_sb_session'))localStorage.setItem('ops_sb_session','${safeSid}');
+</script>`;
+  return html.replace('<head>', '<head>' + script);
+}
 
 let sseClients = [];
 let lastLineCount = 0;
@@ -305,7 +332,7 @@ const server = http.createServer((req, res) => {
     case '/dashboard':
       if (fs.existsSync(DASHBOARD)) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(fs.readFileSync(DASHBOARD, 'utf8'));
+        res.end(injectSupabaseConfig(fs.readFileSync(DASHBOARD, 'utf8')));
       } else {
         res.writeHead(404); res.end('Dashboard not found');
       }
@@ -367,6 +394,18 @@ const server = http.createServer((req, res) => {
       const qrSvg = generateQrSvg(accessUrl);
       res.writeHead(200, { 'Content-Type': 'image/svg+xml' });
       res.end(qrSvg);
+      break;
+    }
+
+    case '/api/supabase-config': {
+      const sbCfg = readSupabaseConfig();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(sbCfg ? {
+        url: sbCfg.url,
+        anonKey: sbCfg.anonKey,
+        sessionId: sbCfg.sessionId,
+        projectName: sbCfg.projectName || null,
+      } : { error: 'No supabase config found' }));
       break;
     }
 
