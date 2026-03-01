@@ -410,28 +410,6 @@ export function renderCmdHist() {
 }
 
 // ══════════════════════════════════════════════════════
-// ── MCP TRACKING ──
-// ══════════════════════════════════════════════════════
-export function trackMcp(entry) {
-  const tool = entry.tool || entry.tool_name || '';
-  if (tool.startsWith('mcp__')) {
-    const parts = tool.split('__');
-    if (parts.length >= 3) {
-      const server = parts[1], toolName = parts.slice(2).join('__');
-      if (!S.mcpServerData[server]) S.mcpServerData[server] = { calls: 0, tools: {}, lastSeen: null };
-      S.mcpServerData[server].calls++;
-      S.mcpServerData[server].tools[toolName] = (S.mcpServerData[server].tools[toolName] || 0) + 1;
-      S.mcpServerData[server].lastSeen = entry.ts || entry.timestamp;
-      S.mcpTotalCalls++;
-    }
-  }
-  if (entry.skill_routed) {
-    S.skillRouteData[entry.skill_routed] = (S.skillRouteData[entry.skill_routed] || 0) + 1;
-    S.skillTotalRouted++;
-  }
-}
-
-// ══════════════════════════════════════════════════════
 // ── THROTTLED UI UPDATE (sUI / uUI) ──
 // ══════════════════════════════════════════════════════
 export function sUI() {

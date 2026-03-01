@@ -375,6 +375,7 @@ export function drawPts(){
 
 // ── Floating text ──
 export function spawnFloatingText(x,y,text,color,size){
+  if(S.floatingTexts.length>20)return;
   const ft={x,y,text,color:color||'#FFD080',size:size||12,life:60,vy:-1.2,alpha:1,sprite:null};
   if(S.pixiReady&&S.L.effects){try{const t=new PIXI.Text({text,style:{fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',fontWeight:'bold',fontSize:ft.size,fill:ft.color,dropShadow:true,dropShadowColor:'#000000',dropShadowDistance:1,dropShadowAlpha:0.6}});t.anchor.set(0.5);t.x=x;t.y=y;S.L.effects.addChild(t);ft.sprite=t}catch(e){}}
   S.floatingTexts.push(ft);

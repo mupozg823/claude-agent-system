@@ -1,9 +1,8 @@
 // ── main.js ── Bootstrap, DOM events, window exposures
-import { S, C, DESKS, AT } from './state.js';
+import { S, C, AT } from './state.js';
 import { narr } from './ui.js';
 import { openPanel, closePanel, switchTab } from './ui.js';
-import { cW, cH, initCanvas, startRenderLoop, spawnP, switchFloor, toggleBuildingView, updateFloorBadges, spawnFloatingText } from './renderer-views.js';
-import { setGameTick } from './renderer-views.js';
+import { cW, cH, initCanvas, startRenderLoop, spawnP, switchFloor, toggleBuildingView, setGameTick } from './renderer-views.js';
 import { agents } from './agents.js';
 import { checkKairoEvent, updateEvent, updateReputation } from './game-systems.js';
 import { getParams, doConnect, connectWith, sendCmd, quickCmd, requestStatus, trySSEFallback } from './connection.js';
@@ -96,9 +95,8 @@ document.body.addEventListener('drop', e => {
   if (f) {
     const r = new FileReader();
     r.onload = v => {
-      const { onE } = window._connModule || {};
       S.entries = v.target.result.trim().split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
-      if (onE) S.entries.forEach(e2 => onE(e2));
+      import('./connection.js').then(conn => { S.entries.forEach(e2 => conn.onE(e2)); });
       import('./ui.js').then(ui => { ui.sUI(); ui.toast(`\uB85C\uADF8 \uB85C\uB4DC! ${S.entries.length}\uAC74`, 'ok'); });
       narr(`\uB85C\uADF8 \uB85C\uB4DC! ${S.entries.length}\uAC74`);
     };

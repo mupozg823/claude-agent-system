@@ -1,9 +1,9 @@
 // ── connection.js ── Supabase Realtime + SSE fallback connection
-import { S, C, DESKS, AT, NR, TOOL_COLORS, SSE_PORTS } from './state.js';
-import { tk, desc, esc, pick, t2a, toolGroup, trackActivity, addSpark, recordHeat } from './utils.js';
-import { toast, narr, openPanel, updateBadge, renderPanel, renderCmdHist, sUI, uUI } from './ui.js';
+import { S, DESKS, AT, NR, TOOL_COLORS, SSE_PORTS } from './state.js';
+import { desc, pick, t2a, toolGroup, trackActivity, addSpark, recordHeat } from './utils.js';
+import { toast, narr, updateBadge, renderCmdHist, sUI } from './ui.js';
 import { cW, cH, initCanvas, startRenderLoop, spawnP, spawnFloatingText, triggerShake, switchFloor, spawnElevatorPacket } from './renderer-views.js';
-import { addCombo, addRP, updateReputation, trackMcp } from './game-systems.js';
+import { addCombo, addRP, trackMcp } from './game-systems.js';
 
 // ── URL params ──
 export function getParams() {
@@ -203,6 +203,8 @@ export function setAgentOnline(online) {
 
 // ── Event Handler ──
 export function onE(e) {
+  // Cap entries to prevent unbounded growth
+  if (S.entries.length > 2000) S.entries.splice(0, S.entries.length - 1500);
   trackActivity(); trackMcp(e); recordHeat(e.ts);
   const grp = toolGroup(e.tool);
   if (!S.groupStats[grp]) S.groupStats[grp] = { total: 0, errors: 0 };
