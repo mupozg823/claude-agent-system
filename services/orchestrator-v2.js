@@ -132,9 +132,10 @@ class Teammate {
     this.status = 'running';
     this.startTime = Date.now();
 
+    const toolList = this.role.tools.join(', ');
     const prompt = [
       `[Role: ${this.role.name}]`,
-      `[Tools: ${this.role.tools.join(', ')}]`,
+      `CRITICAL: You may ONLY use these tools: ${toolList}. Do NOT use any other tools.`,
       context ? `[Context from previous steps]:\n${context}` : '',
       '',
       `Task: ${this.task}`,
@@ -143,7 +144,12 @@ class Teammate {
     ].filter(Boolean).join('\n');
 
     try {
-      const result = execFileSync('claude', ['-p', prompt, '--output-format', 'text'], {
+      const args = ['-p', prompt, '--output-format', 'text'];
+      // Enforce tool restrictions via --allowedTools if CLI supports it
+      if (this.role.tools && this.role.tools.length > 0) {
+        args.push('--allowedTools', JSON.stringify(this.role.tools));
+      }
+      const result = execFileSync('claude', args, {
         encoding: 'utf8',
         timeout: 300_000, // 5 min
         cwd: this.cwd,

@@ -1848,8 +1848,8 @@ function render(ts){
 
 function getParams(){
   const p=new URLSearchParams(location.search);
-  const DEF_URL='https://cdiptfmagemjfmsuphaj.supabase.co';
-  const DEF_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkaXB0Zm1hZ2VtamZtc3VwaGFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1NjQyMTIsImV4cCI6MjA4NDE0MDIxMn0.mOulQy84XNc7dBQWbC4GlAKkx-9cWOcSgzYWi_tLuHU';
+  const DEF_URL='';
+  const DEF_KEY='';
   return {
     url: p.get('url') || localStorage.getItem('sb_url') || DEF_URL,
     key: p.get('key') || localStorage.getItem('sb_key') || DEF_KEY,
