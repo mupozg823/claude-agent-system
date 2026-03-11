@@ -32,21 +32,20 @@ const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
 const WebSocket = require('ws');
+const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR, ORCH_DIR } = require('./lib/paths');
+const { localDate, auditFilePath } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const CLAUDE_DIR = path.join(HOME, '.claude');
-const ENGINE = path.join(CLAUDE_DIR, 'hooks', 'agent-engine.js');
-const ORCHESTRATOR = path.join(CLAUDE_DIR, 'hooks', 'orchestrator.js');
-const AUDIT_DIR = path.join(CLAUDE_DIR, 'logs', 'audit');
+const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
+const ORCHESTRATOR = path.join(HOOKS_DIR, 'orchestrator.js');
 const GATEWAY_PID = path.join(CLAUDE_DIR, 'gateway.pid');
-const GATEWAY_LOG = path.join(CLAUDE_DIR, 'logs', 'gateway.jsonl');
+const GATEWAY_LOG = path.join(LOGS_DIR, 'gateway.jsonl');
 const CONFIG_FILE = path.join(CLAUDE_DIR, '.supabase-config.json');
 const CRON_FILE = path.join(CLAUDE_DIR, 'CRON.md');
-const BINDING_RULES_FILE = path.join(CLAUDE_DIR, 'hooks', 'binding-rules.json');
-const SKILL_ROUTER_FILE = path.join(CLAUDE_DIR, 'hooks', 'skill-router.js');
+const BINDING_RULES_FILE = path.join(HOOKS_DIR, 'binding-rules.json');
+const SKILL_ROUTER_FILE = path.join(HOOKS_DIR, 'skill-router.js');
 const DEFAULT_PORT = 18790;
 
-fs.mkdirSync(path.join(CLAUDE_DIR, 'logs'), { recursive: true });
+fs.mkdirSync(LOGS_DIR, { recursive: true });
 
 // ══════════════════════════════════════════════════════
 // ── LOGGING ──
@@ -63,10 +62,7 @@ function log(level, msg) {
   } catch {}
 }
 
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+// localDate() imported from lib/utils
 
 // ══════════════════════════════════════════════════════
 // ── BINDING RULE ENGINE (OpenClaw pattern) ──

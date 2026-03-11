@@ -28,11 +28,9 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { createClient } = require('@supabase/supabase-js');
+const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR } = require('./lib/paths');
 
 const HOME = process.env.HOME || process.env.USERPROFILE;
-const CLAUDE_DIR = path.join(HOME, '.claude');
-const HOOKS_DIR = path.join(CLAUDE_DIR, 'hooks');
-const AUDIT_DIR = path.join(CLAUDE_DIR, 'logs', 'audit');
 const CONFIG_FILE = path.join(CLAUDE_DIR, '.supabase-config.json');
 const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
 
@@ -278,10 +276,7 @@ async function setup() {
   }
 }
 
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+const { localDate } = require('./lib/utils');
 
 function log(level, msg) {
   const ts = new Date().toISOString().slice(11, 19);
