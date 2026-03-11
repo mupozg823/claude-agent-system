@@ -16,6 +16,12 @@ const path = require('path');
 const { LOGS_DIR, AUDIT_DIR, CHECKPOINT_DIR, CONTEXTS_DIR, QUEUE_DIR } = require('./lib/paths');
 const { safeRead, latestFile } = require('./lib/utils');
 
+// v4: Context engine integration for structured snapshot restore
+let contextEngine = null;
+try { contextEngine = require('./context-engine'); } catch {}
+let telemetry = null;
+try { telemetry = require('./telemetry'); } catch {}
+
 const DIRS = {
   logs: LOGS_DIR,
   audit: AUDIT_DIR,
@@ -110,6 +116,28 @@ function main() {
     return;
   }
 
+  // v4: Try structured snapshot first (faster, more compact ~500 tokens)
+  if (contextEngine) {
+    try {
+      const snapshot = contextEngine.restoreSnapshot();
+      if (snapshot) {
+        const snapshotContext = contextEngine.formatSnapshotContext(snapshot);
+        if (snapshotContext) {
+          if (telemetry) telemetry.recordContextRestore();
+          const result = {
+            hookSpecificOutput: {
+              hookEventName: 'SessionStart',
+              additionalContext: snapshotContext
+            }
+          };
+          out(JSON.stringify(result));
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  // Fallback: original 3-tier context loading
   const parts = [
     getCheckpointContext(),
     getContextSave(),

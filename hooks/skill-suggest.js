@@ -12,7 +12,12 @@ const path = require('path');
 
 const RULES_PATH = path.join(__dirname, 'skill-rules.json');
 
+// v4.1: Use cached skill rules and pre-compiled regex patterns
+let cache = null;
+try { cache = require('./lib/cache'); } catch {}
+
 function loadRules() {
+  if (cache) return cache.getSkillRules(RULES_PATH);
   try {
     return JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
   } catch {
@@ -35,14 +40,22 @@ function scoreSkill(skill, prompt, categories) {
     }
   }
 
-  // 패턴 매칭 (각 패턴당 +25)
-  for (const pat of skill.patterns) {
-    try {
-      if (new RegExp(pat, 'i').test(prompt)) {
+  // v4.1: Use pre-compiled patterns if cache available
+  const compiledPatterns = cache ? cache.getCompiledPatterns(RULES_PATH) : null;
+  if (compiledPatterns && compiledPatterns.has(skill.name)) {
+    for (const regex of compiledPatterns.get(skill.name)) {
+      if (regex.test(prompt)) {
         score += 25;
       }
-    } catch {
-      // 잘못된 정규식 무시
+    }
+  } else {
+    // Fallback: compile on the fly
+    for (const pat of skill.patterns) {
+      try {
+        if (new RegExp(pat, 'i').test(prompt)) {
+          score += 25;
+        }
+      } catch {}
     }
   }
 

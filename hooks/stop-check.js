@@ -15,6 +15,18 @@ const path = require('path');
 const { AUDIT_DIR, LOGS_DIR, CHECKPOINT_DIR, QUEUE_DIR } = require('./lib/paths');
 const { auditFilePath, writeCheckpoint, appendJsonl } = require('./lib/utils');
 
+// Quality gate integration (v4)
+let qualityGate = null;
+try { qualityGate = require('./quality-gate'); } catch {}
+
+// Telemetry integration (v4)
+let telemetry = null;
+try { telemetry = require('./telemetry'); } catch {}
+
+// Context engine integration (v4)
+let contextEngine = null;
+try { contextEngine = require('./context-engine'); } catch {}
+
 function logEvent(event, detail) {
   try {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
@@ -161,9 +173,39 @@ async function main() {
     }));
   }
 
+  // ── v4: Quality Gate check before allow ──
+  let qualityMsg = '';
+  if (qualityGate) {
+    try {
+      const qResult = qualityGate.runAndRecord();
+      const formatted = qualityGate.formatResults(qResult);
+      if (formatted && qResult.verdict === 'fail') {
+        // Block with quality gate failure
+        logEvent('stop', { decision: 'block', reason: 'quality-gate', issues: qResult.issues });
+        return out(JSON.stringify({
+          decision: 'block',
+          reason: `품질 게이트 실패:\n${formatted}\n이슈를 해결한 후 다시 시도하세요.`
+        }));
+      }
+      if (formatted) qualityMsg = `\n${formatted}`;
+    } catch (e) {
+      process.stderr.write(`[stop-check] quality-gate error: ${e.message}\n`);
+    }
+  }
+
+  // ── v4: Save structured snapshot before exit ──
+  if (contextEngine) {
+    try { contextEngine.createSnapshot(data.session_id); } catch {}
+  }
+
+  // ── v4: Flush telemetry ──
+  if (telemetry) {
+    try { telemetry.flush(data.session_id); } catch {}
+  }
+
   // 허용 + 체크포인트 + 정리
   writeCheckpoint('세션 정상 종료', []);
-  logEvent('stop', { decision: 'allow', incScore, compScore });
+  logEvent('stop', { decision: 'allow', incScore, compScore, qualityMsg: qualityMsg ? 'yes' : 'no' });
   writeSessionMarker();
   cleanup();
   out('{}');

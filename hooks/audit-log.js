@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 /**
- * audit-log.js v4 - PostToolUse hook
+ * audit-log.js v4.1 - PostToolUse hook
+ *
+ * v4.1 개선 (성능 최적화):
+ *   - 인메모리 시퀀스 카운터 (캐시 모듈 연동)
+ *   - 텔레메트리 연동 (훅 지연시간 기록)
+ *   - 토큰 버짓 턴 카운터 연동
+ *   - 파일 변경 추적 (quality-gate용)
  *
  * v4 개선:
  *   - 도구 그룹 분류 (group: file-io/shell/search/external/agent/edit/other)
  *   - 세션 내 순서 번호 (seq)
- *   - 도구 실행 시간 추정 (dur_ms: PreToolUse→PostToolUse 델타)
  *   - 에러 스택 트레이스 추출 (200자)
  *   - 민감 경로 경고 유지
  */
@@ -18,6 +23,20 @@ const { localDate, auditFilePath } = require('./lib/utils');
 const SEQ_FILE = path.join(AUDIT_DIR, '.seq');
 
 const SENSITIVE = [/\.env($|\.)/, /credential/i, /secret/i, /password/i, /token\.json/i, /\.pem$/, /id_rsa/];
+
+// v4.1: Performance integration modules (graceful fallback)
+let cache, telemetry, tokenBudget;
+try { cache = require('./lib/cache'); } catch {}
+try { telemetry = require('./telemetry'); } catch {}
+try { tokenBudget = require('./token-budget'); } catch {}
+
+// v4.1: Initialize in-memory seq counter from disk (once)
+let _seqInitialized = false;
+function initSeq() {
+  if (_seqInitialized || !cache) return;
+  cache.initSeqFromDisk('audit', SEQ_FILE);
+  _seqInitialized = true;
+}
 
 // 도구 그룹 분류
 const TOOL_GROUPS = {
@@ -34,6 +53,12 @@ function toolGroup(t) {
 }
 
 function nextSeq() {
+  // v4.1: Use in-memory counter if cache available (eliminates 2 disk I/Os per call)
+  if (cache) {
+    initSeq();
+    return cache.nextSeq('audit');
+  }
+  // Fallback: original disk-based counter
   try {
     const n = parseInt(fs.readFileSync(SEQ_FILE, 'utf8').trim()) || 0;
     fs.writeFileSync(SEQ_FILE, String(n + 1));
@@ -85,6 +110,8 @@ function extractError(response) {
 }
 
 async function main() {
+  const hookStart = process.hrtime.bigint(); // v4.1: latency tracking
+
   let raw = '';
   for await (const c of process.stdin) raw += c;
 
@@ -122,8 +149,33 @@ async function main() {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
     fs.appendFileSync(auditFilePath(), JSON.stringify(entry) + '\n');
   } catch (e) {
-    // 로그 실패 시 stderr에 경고
     process.stderr.write(`[audit-log] write failed: ${e.message}\n`);
+  }
+
+  // v4.1: Track file changes for quality gate
+  if (telemetry && (tool === 'Write' || tool === 'Edit') && filePath) {
+    try { telemetry.recordFileChange(filePath); } catch {}
+  }
+
+  // v4.1: Record tool call for telemetry
+  if (telemetry) {
+    try { telemetry.recordToolCall(); } catch {}
+  }
+
+  // v4.1: Record turn for token budget
+  if (tokenBudget) {
+    try { tokenBudget.recordTurn(); } catch {}
+  }
+
+  // v4.1: Record hook latency
+  if (telemetry) {
+    const elapsed = Number(process.hrtime.bigint() - hookStart) / 1e6;
+    try { telemetry.recordHookLatency('audit-log', elapsed); } catch {}
+  }
+
+  // v4.1: Flush seq counter to disk periodically (every 10 calls)
+  if (cache && seq % 10 === 0) {
+    try { cache.flushSeqToDisk('audit', SEQ_FILE); } catch {}
   }
 
   out('{}');

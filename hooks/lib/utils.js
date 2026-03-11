@@ -86,6 +86,65 @@ function compressOldFiles(dir, ext, maxAgeDays) {
   } catch {}
 }
 
+// ── Async variants for performance-critical paths ──
+
+const fsp = require('fs').promises;
+
+/** Async safe file read */
+async function safeReadAsync(fp) {
+  try { return await fsp.readFile(fp, 'utf8'); } catch { return ''; }
+}
+
+/** Async JSONL read with streaming (memory efficient for large files) */
+async function readJsonlStream(fp) {
+  const content = await safeReadAsync(fp);
+  if (!content.trim()) return [];
+  return content.trim().split('\n').filter(Boolean).map(line => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).filter(Boolean);
+}
+
+/** Async latest file finder with result caching */
+const _latestFileCache = new Map(); // dir+ext → { result, ts }
+const LATEST_FILE_TTL = 5000; // 5 second cache
+
+async function latestFileAsync(dir, ext) {
+  const key = `${dir}:${ext}`;
+  const cached = _latestFileCache.get(key);
+  if (cached && Date.now() - cached.ts < LATEST_FILE_TTL) return cached.result;
+
+  try {
+    const files = await fsp.readdir(dir);
+    const matching = files.filter(f => f.endsWith(ext));
+    if (matching.length === 0) {
+      _latestFileCache.set(key, { result: null, ts: Date.now() });
+      return null;
+    }
+
+    const withStats = await Promise.all(
+      matching.map(async f => {
+        const fp = path.join(dir, f);
+        const stat = await fsp.stat(fp);
+        return { name: f, mtime: stat.mtimeMs };
+      })
+    );
+
+    withStats.sort((a, b) => b.mtime - a.mtime);
+    const result = path.join(dir, withStats[0].name);
+    _latestFileCache.set(key, { result, ts: Date.now() });
+    return result;
+  } catch {
+    _latestFileCache.set(key, { result: null, ts: Date.now() });
+    return null;
+  }
+}
+
+/** Async append JSONL */
+async function appendJsonlAsync(fp, obj) {
+  await fsp.mkdir(path.dirname(fp), { recursive: true });
+  await fsp.appendFile(fp, JSON.stringify(obj) + '\n');
+}
+
 module.exports = {
   localDate,
   auditFilePath,
@@ -97,4 +156,9 @@ module.exports = {
   atomicWrite,
   safeJsonParse,
   compressOldFiles,
+  // Async variants
+  safeReadAsync,
+  readJsonlStream,
+  latestFileAsync,
+  appendJsonlAsync,
 };

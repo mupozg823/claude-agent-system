@@ -15,6 +15,14 @@ const { execSync } = require('child_process');
 const { CHECKPOINT_DIR, AUDIT_DIR } = require('./lib/paths');
 const { safeRead, localDate, latestFile, atomicWrite, readJsonl } = require('./lib/utils');
 
+// v4.1: Context engine for structured snapshots + telemetry
+let contextEngine = null;
+try { contextEngine = require('./context-engine'); } catch {}
+let telemetry = null;
+try { telemetry = require('./telemetry'); } catch {}
+let tokenBudget = null;
+try { tokenBudget = require('./token-budget'); } catch {}
+
 function out(s) { process.stdout.write(s); }
 
 function gitExec(cmd) {
@@ -73,7 +81,7 @@ function main() {
       sections.push(`- Tasks: ${process.env.PENDING_TASKS}`);
     }
 
-    // Write compact checkpoint
+    // Write compact checkpoint (legacy markdown format)
     const content = sections.join('\n\n') + '\n';
     const fileName = `compact-${ts.replace(/[:.]/g, '-')}.md`;
     const filePath = path.join(CHECKPOINT_DIR, fileName);
@@ -82,6 +90,19 @@ function main() {
       atomicWrite(filePath, content);
     } catch (e) {
       process.stderr.write(`pre-compact error: ${e.message}\n`);
+    }
+
+    // v4.1: Also create structured JSON snapshot (for context-engine restore)
+    if (contextEngine) {
+      try { contextEngine.createSnapshot(); } catch {}
+    }
+
+    // v4.1: Record compaction event in telemetry + token budget
+    if (telemetry) {
+      try { telemetry.recordCompaction(); } catch {}
+    }
+    if (tokenBudget) {
+      try { tokenBudget.recordCompaction(); } catch {}
     }
 
     out('{}');
