@@ -258,7 +258,12 @@ async function main() {
   console.log(`\n  Relay 시작: node ~/.claude/hooks/relay-supabase.js\n`);
 }
 
-main().catch(e => {
-  err(`Fatal: ${e.message}`);
-  process.exit(1);
-});
+// Only auto-run when executed directly (not when required as module)
+if (require.main === module) {
+  main().catch(e => {
+    err(`Fatal: ${e.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { setupWithToken, startServer };

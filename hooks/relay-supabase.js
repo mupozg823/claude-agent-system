@@ -824,9 +824,14 @@ if (isSetup) {
     process.exit(1);
   });
 } else {
-  // Auto-setup if config is missing/invalid
+  // Check config
   const cfg = loadConfig();
   if (!cfg.url || cfg.url.includes('YOUR_PROJECT') || !cfg.anonKey || cfg.anonKey.includes('YOUR_')) {
+    // Non-interactive mode (piped stdin, require(), etc.) → exit gracefully
+    if (!process.stdin.isTTY) {
+      console.error('[relay] Config이 없습니다. 먼저 설정하세요: node relay-supabase.js --setup');
+      process.exit(1);
+    }
     console.log('\n  Config이 없습니다. 자동 셋업을 시작합니다...\n');
     setup().catch((e) => {
       console.error(`\n  \x1b[31mSetup failed: ${e.message}\x1b[0m`);
