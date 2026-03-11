@@ -6,33 +6,60 @@
 
 ## Part 1: 유사 시스템 비교 분석
 
-### 직접 경쟁 시스템
+### 직접 경쟁 시스템 (Claude Code Hook/Scaffold)
 
 | 시스템 | Stars | 규모 | 아키텍처 | 차별점 |
 |--------|-------|------|----------|--------|
-| **everything-claude-code** (ECC) | 62.7K | 997 tests, 14+ skills | 멀티-하네스 OS 레이어 | 크로스 플랫폼 (Cursor/Codex/OpenCode) |
-| **claude-007-agents** | ~5K | 112 agents, 14 categories | Bridge Agent + 퍼스널리티 시스템 | 75+ 특화 AI, 멀티모델 |
+| **everything-claude-code** (ECC) | 62.7K | 854 skills, 22 hooks, 1282 보안 테스트 | 멀티-하네스 OS 레이어 | AgentShield 보안, Hook 프로필 (minimal/standard/strict) |
+| **Ruflo** (ruvnet) | 20.3K | 87 MCP tools, 분산 스웜 | 오케스트레이션 플랫폼 | 75-80% 토큰 절감, 250% 구독 효율, ~500K 다운로드 |
+| **claude-007-agents** (avivl) | ~5K | 112 agents, 14 categories | Bridge Agent + 퍼스널리티 시스템 | 멀티모델 (Claude/Gemini/OpenAI), 5개 Task Master |
 | **claude-agents** (wshobson) | ~3K | 79 tools, 72 plugins | 그래뉼러 플러그인 | 토큰 최소화 (~1000 tokens/install) |
-| **claude-skills** (alirezarezvani) | ~2K | 180+ skills | 스킬 마켓플레이스 | 프로덕션 레디, 멀티 에이전트 호환 |
-| **ruflo** (ruvnet) | ~1K | 분산 스웜 | 오케스트레이션 플랫폼 | 엔터프라이즈 급, RAG 통합 |
-| **우리 시스템** | N/A (비공개) | 8.3K LOC, 48 skills, 49 commands | 훅 기반 스캐폴드 | 성능 텔레메트리, 품질 게이트 |
+| **claude-skills** (alirezarezvani) | ~2K | 180+ skills | 스킬 마켓플레이스 | `/plugin marketplace` 설치, 멀티 에이전트 호환 |
+| **우리 시스템** | N/A (비공개) | 8.3K LOC, 48 skills, 49 commands | 훅 기반 스캐폴드 | 세션 체크포인트, 텔레메트리, 토큰 버짓, 원격 모니터링 |
+
+### IDE 기반 경쟁 시스템
+
+| 시스템 | 타입 | 사용자 | 차별점 |
+|--------|------|--------|--------|
+| **Cursor** | 상용 IDE | 20K+ devs (Salesforce) | Automations (PR/Slack/cron 트리거), 병렬 agent |
+| **Windsurf** | 상용 IDE | - | Persistent Memories, Rulebooks, Plan→Approve→Execute |
+| **Cline** | VS Code 확장 | 5M+ | MCP로 자체 도구 생성, `.clinerules`, 브라우저 사용 |
+| **Roo Code** | VS Code 확장 | - | Custom Modes (Cline 포크), Boomerang Tasks |
+| **Continue.dev** | VS Code/JB | - | Hub (커뮤니티 플러그인), CI 도구로 전환 중 |
 
 ### 간접 경쟁 (에이전트 프레임워크)
 
-| 시스템 | SWE-bench | 아키텍처 | 특징 |
-|--------|-----------|----------|------|
-| **OpenHands** | 72% (Sonnet 4.5) | 이벤트 스트림 SDK | 모듈러 V1 SDK, IPython+브라우저+편집기 |
-| **SWE-agent** | ~58% | ACI (에이전트-컴퓨터 인터페이스) | 연구 중심, 깔끔한 아키텍처 |
-| **Confucius Code Agent** | 74.6% | 오케스트레이션+메모리 | 스캐폴딩이 모델 차이를 극복 |
-| **LIVE-SWE-AGENT** | SOTA | 자기 진화형 스캐폴드 | 에이전트가 자체 스캐폴드를 런타임에 수정 |
+| 시스템 | Stars | SWE-bench | 아키텍처 | 특징 |
+|--------|-------|-----------|----------|------|
+| **OpenHands** | 68.6K | 72% | 이벤트 스트림 SDK | V1 SDK, 100+ LLM, $18.8M Series A |
+| **Aider** | 41.7K | - | Python CLI + Repo Map | 자체 코드의 77-79% 자체 작성, 음성 코딩 |
+| **OpenCode** | 120K+ | - | Client/Server | 800 contributors, 모델 무관, 터미널 네이티브 |
+| **Confucius Code Agent** | - | 74.6% | 오케스트레이션+메모리 | 스캐폴딩이 모델 차이를 극복 |
+| **LIVE-SWE-AGENT** | - | SOTA | 자기 진화형 스캐폴드 | 런타임에 스캐폴드 자체를 수정 |
+
+### 기능 비교 매트릭스
+
+| 기능 | 우리 | ECC | Ruflo | OpenHands | Aider | Cursor | Cline |
+|------|------|-----|-------|-----------|-------|--------|-------|
+| Hook 파이프라인 | **22 모듈** | 22 hooks | MCP | Event Stream | × | Rules | MCP |
+| 세션 체크포인트 | **✅** | × | × | Stateless | × | × | × |
+| JSONL 감사 로그 | **✅** | × | × | ✅ | × | × | × |
+| 스킬 라우팅 | **97개** | 854 skills | 87 tools | Agent 기반 | × | Rules | MCP |
+| DAG 오케스트레이션 | **✅** | × | **✅** | × | × | Automations | × |
+| 토큰 예산 추적 | **✅** | Hook 프로필 | **✅ (75-80%)** | × | × | × | × |
+| Quality Gates | **✅ lint/type** | AgentShield | Benchmark | SWE-bench | × | Plan Mode | Plan/Act |
+| 원격 모니터링 | **Supabase/Telegram** | × | Dashboard | Web UI | × | × | × |
+| StatusLine | **✅** | × | × | × | × | × | × |
+| 모델 지원 | Claude만 | Claude만 | Claude만 | **100+ LLM** | **다중** | **다중** | **다중** |
 
 ### 핵심 인사이트
 
-1. **ECC가 지배적**: 62.7K stars, 997 tests, 크로스 플랫폼 — 우리보다 훨씬 큰 규모
-2. **토큰 효율성이 경쟁력**: wshobson의 시스템은 설치당 ~1000 tokens로 극한 최적화
-3. **자기 진화가 트렌드**: LIVE-SWE-AGENT처럼 런타임에 스캐폴드 자체를 수정하는 패턴
-4. **스캐폴딩 > 모델**: Confucius가 증명 — 좋은 스캐폴드가 모델 격차를 뒤집음
-5. **멀티모델이 표준**: claude-007은 Claude/Gemini/OpenAI 모두 지원
+1. **ECC가 지배적**: 62.7K stars, 854 skills, AgentShield — 하지만 세션 체크포인트/원격 모니터링 없음
+2. **우리의 고유 강점**: 세션 체크포인트, StatusLine, Supabase/Telegram 원격 모니터링은 **어떤 경쟁사에도 없음**
+3. **토큰 효율성이 경쟁력**: Ruflo 75-80% 절감, wshobson ~1000 tokens/install
+4. **자기 진화가 트렌드**: LIVE-SWE-AGENT 패턴 — 런타임에 스캐폴드 자체를 수정
+5. **스캐폴딩 > 모델**: Confucius가 증명 — 좋은 스캐폴드가 모델 격차를 뒤집음
+6. **멀티모델이 표준**: 우리만 Claude 전용 — OpenHands 100+, Aider 다중 모델
 
 ---
 
@@ -200,14 +227,32 @@
 
 ## 출처
 
+### Claude Code 생태계
 - [everything-claude-code](https://github.com/affaan-m/everything-claude-code/) — 62.7K stars, 멀티하네스 OS
+- [Ruflo](https://github.com/ruvnet/ruflo) — 20.3K stars, 분산 스웜 오케스트레이션
 - [claude-007-agents](https://github.com/avivl/claude-007-agents) — 112 agents, 14 categories
 - [claude-agents](https://github.com/wshobson/agents) — 72 plugins, 토큰 최적화
 - [claude-skills](https://github.com/alirezarezvani/claude-skills) — 180+ skills 마켓플레이스
-- [ruflo](https://github.com/ruvnet/ruflo) — 분산 스웜 오케스트레이션
+- [claude-code-showcase](https://github.com/ChrisWiles/claude-code-showcase) — hooks+skills+agents 예제
 - [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) — 커뮤니티 큐레이션
+- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — 공식 문서
+
+### IDE/터미널 에이전트
+- [OpenHands](https://github.com/OpenHands/OpenHands) — 68.6K stars, SWE-bench 72%
+- [Aider](https://github.com/Aider-AI/aider) — 41.7K stars, Repo Map
+- [OpenCode](https://github.com/anomalyco/opencode) — 120K+ stars, 터미널 네이티브
+- [Cline](https://github.com/cline/cline) — 5M+ users, VS Code 확장
+- [Roo Code](https://github.com/RooCodeInc/Roo-Code) — Custom Modes, Boomerang Tasks
+- [Continue.dev](https://github.com/continuedev/continue) — VS Code/JetBrains Hub
+- [Claude Engineer](https://github.com/Doriandarko/claude-engineer) — 자기확장 CLI
+
+### 학술 연구
 - [OpenHands SDK](https://arxiv.org/html/2511.03690v1) — 이벤트 스트림 아키텍처
 - [Confucius Code Agent](https://arxiv.org/pdf/2512.10398) — 74.6% SWE-bench
 - [LIVE-SWE-AGENT](https://arxiv.org/pdf/2511.13646) — 자기 진화형 스캐폴드
 - [SWE-EVO Benchmark](https://arxiv.org/html/2512.18470) — 장기 소프트웨어 진화 벤치마크
-- [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks) — 공식 문서
+
+### 가이드/블로그
+- [Claude Code CLI Guide 2026](https://blakecrosley.com/guides/claude-code) — 훅/MCP/스킬 종합 가이드
+- [AI OS Blueprint](https://dev.to/jan_lucasandmann_bb9257c/claude-code-to-ai-os-blueprint-skills-hooks-agents-mcp-setup-in-2026-46gg) — 에이전트 OS 구축법
+- [Claude Code Extensions Explained](https://muneebsa.medium.com/claude-code-extensions-explained-skills-mcp-hooks-subagents-agent-teams-plugins-9294907e84ff) — MCP→Hooks→Skills→Agent Teams 타임라인
