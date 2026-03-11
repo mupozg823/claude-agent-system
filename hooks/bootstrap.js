@@ -143,6 +143,12 @@ function copyDir(src, dest) {
     if (entry.isDirectory()) {
       copyDir(srcPath, destPath);
     } else {
+      // Skip if file unchanged (same size + mtime)
+      try {
+        const srcStat = fs.statSync(srcPath);
+        const destStat = fs.statSync(destPath);
+        if (srcStat.size === destStat.size && srcStat.mtimeMs <= destStat.mtimeMs) continue;
+      } catch { /* dest doesn't exist, copy it */ }
       fs.copyFileSync(srcPath, destPath);
     }
   }
@@ -150,7 +156,11 @@ function copyDir(src, dest) {
 
 // ── Dependencies ──
 
-function installDeps() {
+function installDeps(env) {
+  // Mobile: hooks use only Node.js built-ins, skip npm install (saves 10-30s)
+  // Services (ws, supabase, sqlite) are desktop-only daemons
+  if (env.platform === 'mobile') return 'skipped-mobile';
+
   const nodeModules = path.join(REPO_DIR, 'node_modules');
   const pkgJson = path.join(REPO_DIR, 'package.json');
 
@@ -254,7 +264,7 @@ function main() {
     ensureDirs();
     report.hooks = deployHooks(env);
     report.services = deployServices(env);
-    report.deps = installDeps();
+    report.deps = installDeps(env);
     report.settings = syncSettings();
     report.elapsed = Date.now() - startMs;
 
