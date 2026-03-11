@@ -148,26 +148,9 @@ test('skill-suggest.js returns JSON', () => {
   if (out) JSON.parse(out);
 });
 
-test('smart-approve.js auto-approves safe command', () => {
-  const out = run('echo \'{"tool_name":"Bash","tool_input":{"command":"ls -la"}}\' | node hooks/smart-approve.js');
-  if (out) {
-    const parsed = JSON.parse(out);
-    // Should not block ls -la
-    assert(parsed.decision !== 'block', 'blocked safe command');
-  }
-});
-
-test('smart-approve.js blocks dangerous command', () => {
-  const tmp = '/tmp/test-smart-approve-input.json';
-  // Build dangerous command without literal pattern (avoids PreToolUse hook interception)
-  const cmd = ['r','m',' ','-','r','f',' ','/'].join('');
-  fs.writeFileSync(tmp, JSON.stringify({tool_name:'Bash',tool_input:{command:cmd}}));
-  const out = run(`cat ${tmp} | node hooks/smart-approve.js`);
-  const parsed = JSON.parse(out);
-  const decision = parsed.decision || (parsed.hookSpecificOutput && parsed.hookSpecificOutput.permissionDecision);
-  assert(decision === 'block' || decision === 'deny', `expected block/deny, got ${decision}`);
-  fs.unlinkSync(tmp);
-});
+// smart-approve.js was removed — tests skipped
+skip('smart-approve.js auto-approves safe command (module removed)');
+skip('smart-approve.js blocks dangerous command (module removed)');
 
 test('audit-log.js returns {}', () => {
   const out = run('echo \'{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"},"tool_response":{}}\' | node hooks/audit-log.js');
@@ -190,39 +173,49 @@ test('module exports TelegramBot and SessionStore', () => {
   assertEqual(typeof t.ClaudeIntegration, 'function');
 });
 
-test('SessionStore CRUD works in memory', () => {
-  const { SessionStore } = require(path.join(HOOKS, 'telegram-adapter.js'));
-  const store = new SessionStore(':memory:');
-  store.init();
-  store.saveSession(111, 'sess-1', '/', 'hello');
-  const s = store.getSession(111, '/');
-  assert(s !== null, 'session not found');
-  assertEqual(s.session_id, 'sess-1');
-  assertEqual(s.message_count, 1);
-  store.saveSession(111, 'sess-1', '/', 'world');
-  assertEqual(store.getSession(111, '/').message_count, 2);
-  store.clearSession(111, '/');
-  assertEqual(store.getSession(111, '/'), null);
-  store.close();
-});
+// SessionStore tests require better-sqlite3
+(() => {
+  let hasSqlite = false;
+  try { require('better-sqlite3'); hasSqlite = true; } catch {}
 
-test('SessionStore listSessions returns array', () => {
-  const { SessionStore } = require(path.join(HOOKS, 'telegram-adapter.js'));
-  const store = new SessionStore(':memory:');
-  store.init();
-  store.saveSession(222, 'a', '/proj1', 'p1');
-  store.saveSession(222, 'b', '/proj2', 'p2');
-  const list = store.listSessions(222);
-  assertEqual(list.length, 2);
-  store.close();
-});
+  if (hasSqlite) {
+    test('SessionStore CRUD works in memory', () => {
+      const { SessionStore } = require(path.join(HOOKS, 'telegram-adapter.js'));
+      const store = new SessionStore(':memory:');
+      store.init();
+      store.saveSession(111, 'sess-1', '/', 'hello');
+      const s = store.getSession(111, '/');
+      assert(s !== null, 'session not found');
+      assertEqual(s.session_id, 'sess-1');
+      assertEqual(s.message_count, 1);
+      store.saveSession(111, 'sess-1', '/', 'world');
+      assertEqual(store.getSession(111, '/').message_count, 2);
+      store.clearSession(111, '/');
+      assertEqual(store.getSession(111, '/'), null);
+      store.close();
+    });
+
+    test('SessionStore listSessions returns array', () => {
+      const { SessionStore } = require(path.join(HOOKS, 'telegram-adapter.js'));
+      const store = new SessionStore(':memory:');
+      store.init();
+      store.saveSession(222, 'a', '/proj1', 'p1');
+      store.saveSession(222, 'b', '/proj2', 'p2');
+      const list = store.listSessions(222);
+      assertEqual(list.length, 2);
+      store.close();
+    });
+  } else {
+    skip('SessionStore CRUD works in memory (better-sqlite3 not installed)');
+    skip('SessionStore listSessions returns array (better-sqlite3 not installed)');
+  }
+})();
 
 // ══════════════════════════════════════
 console.log('\n=== Module loading ===');
 // ══════════════════════════════════════
 
 const moduleTests = [
-  ['gateway.js', 'gateway'],
   ['orchestrator.js', 'orchestrator'],
   ['skill-router.js', 'skill-router'],
   ['supabase-auto-setup.js', 'supabase-auto-setup'],
@@ -233,6 +226,19 @@ for (const [file, name] of moduleTests) {
     require(path.join(HOOKS, file));
   });
 }
+
+// gateway.js requires 'ws' module
+(() => {
+  let hasWs = false;
+  try { require('ws'); hasWs = true; } catch {}
+  if (hasWs) {
+    test('gateway loads without error', () => {
+      require(path.join(HOOKS, 'gateway.js'));
+    });
+  } else {
+    skip('gateway loads without error (ws not installed)');
+  }
+})();
 
 // ══════════════════════════════════════
 console.log('\n=== Skills 2.0 ===');

@@ -17,12 +17,15 @@ const { LOGS_DIR, AUDIT_DIR } = require('./lib/paths');
 const TELEMETRY_DIR = path.join(LOGS_DIR, 'telemetry');
 const { localDate, readJsonl, appendJsonl, safeRead } = require('./lib/utils');
 
-// ── In-memory metrics buffer ──
+// ── In-memory metrics buffer (bounded to prevent memory leaks) ──
+const MAX_HOOK_LATENCIES = 1000;
+const MAX_FILES_TRACKED = 500;
+
 const _metrics = {
-  hookLatencies: [],    // { hook, ms, ts }
+  hookLatencies: [],    // { hook, ms, ts } — max MAX_HOOK_LATENCIES
   toolCalls: 0,
-  filesChanged: new Set(),
-  reworkFiles: new Map(), // file → edit count
+  filesChanged: new Set(),  // max MAX_FILES_TRACKED
+  reworkFiles: new Map(), // file → edit count — max MAX_FILES_TRACKED
   sessionStart: Date.now(),
   compactions: 0,
   contextRestores: 0,
@@ -35,6 +38,9 @@ const _metrics = {
  * @param {number} elapsedMs
  */
 function recordHookLatency(hookName, elapsedMs) {
+  if (_metrics.hookLatencies.length >= MAX_HOOK_LATENCIES) {
+    _metrics.hookLatencies.shift();
+  }
   _metrics.hookLatencies.push({
     hook: hookName,
     ms: Math.round(elapsedMs * 100) / 100,
@@ -47,7 +53,14 @@ function recordHookLatency(hookName, elapsedMs) {
  * @param {string} filePath
  */
 function recordFileChange(filePath) {
-  _metrics.filesChanged.add(filePath);
+  if (_metrics.filesChanged.size < MAX_FILES_TRACKED) {
+    _metrics.filesChanged.add(filePath);
+  }
+  if (_metrics.reworkFiles.size >= MAX_FILES_TRACKED && !_metrics.reworkFiles.has(filePath)) {
+    // Evict oldest entry
+    const oldest = _metrics.reworkFiles.keys().next().value;
+    _metrics.reworkFiles.delete(oldest);
+  }
   const count = _metrics.reworkFiles.get(filePath) || 0;
   _metrics.reworkFiles.set(filePath, count + 1);
 }

@@ -107,11 +107,18 @@ async function readJsonlStream(fp) {
 /** Async latest file finder with result caching */
 const _latestFileCache = new Map(); // dir+ext → { result, ts }
 const LATEST_FILE_TTL = 5000; // 5 second cache
+const LATEST_FILE_MAX = 20; // max cache entries
 
 async function latestFileAsync(dir, ext) {
   const key = `${dir}:${ext}`;
   const cached = _latestFileCache.get(key);
   if (cached && Date.now() - cached.ts < LATEST_FILE_TTL) return cached.result;
+
+  // Evict oldest if at capacity
+  if (_latestFileCache.size >= LATEST_FILE_MAX && !_latestFileCache.has(key)) {
+    const oldest = _latestFileCache.keys().next().value;
+    _latestFileCache.delete(oldest);
+  }
 
   try {
     const files = await fsp.readdir(dir);

@@ -20,8 +20,10 @@ const { AUDIT_DIR, TEMP_DIR } = require('./lib/paths');
 const { safeRead, localDate, readJsonl } = require('./lib/utils');
 const { fileCache } = require('./lib/cache');
 
-// Claude Code context window (200K tokens)
-const MAX_CONTEXT_TOKENS = 200000;
+// Claude Code context window — supports 1M (Opus 4.6 beta) via env flag
+const MAX_CONTEXT_TOKENS = process.env.CLAUDE_CONTEXT_1M === '1'
+  ? 1000000   // Opus 4.6 1M beta
+  : 200000;   // Standard
 // Average tokens per audit entry (empirical estimate)
 const TOKENS_PER_TURN = 4000;
 // System prompt overhead (tools + CLAUDE.md)
@@ -117,16 +119,28 @@ function getTokenBudget() {
 
   // Adaptive compaction decision
   let action = 'normal';
-  if (burnRate > 5000) {
-    // High burn rate → compact earlier
+  if (MAX_CONTEXT_TOKENS >= 1000000) {
+    // 1M mode: compact much later
+    if (burnRate > 5000) {
+      if (usedPct >= 90) action = 'compact-now';
+      else if (usedPct >= 85) action = 'compact-soon';
+    } else if (burnRate > 2000) {
+      if (usedPct >= 95) action = 'compact-now';
+      else if (usedPct >= 90) action = 'compact-soon';
+    } else {
+      if (usedPct >= 97) action = 'compact-now';
+      else if (usedPct >= 93) action = 'compact-soon';
+    }
+  } else if (burnRate > 5000) {
+    // 200K: High burn rate → compact earlier
     if (usedPct >= 70) action = 'compact-now';
     else if (usedPct >= 60) action = 'compact-soon';
   } else if (burnRate > 2000) {
-    // Medium burn rate → standard thresholds
+    // 200K: Medium burn rate → standard thresholds
     if (usedPct >= 85) action = 'compact-now';
     else if (usedPct >= 75) action = 'compact-soon';
   } else {
-    // Low burn rate → can wait longer
+    // 200K: Low burn rate → can wait longer
     if (usedPct >= 90) action = 'compact-now';
     else if (usedPct >= 85) action = 'compact-soon';
   }
