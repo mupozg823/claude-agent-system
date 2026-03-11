@@ -1,5 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "DISABLE_TELEMETRY": "1",
+    "DISABLE_ERROR_REPORTING": "1",
+    "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "1"
+  },
+  "alwaysThinkingEnabled": true,
+  "enableAllProjectMcpServers": false,
+  "cleanupPeriodDays": 365,
   "permissions": {
     "allow": [
       "Bash",
@@ -19,6 +27,7 @@
     "deny": [
       "Bash(rm -rf /)",
       "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
       "Bash(format *)",
       "Bash(del /s /q C:\\Windows*)",
       "Bash(git push --force origin main*)",
@@ -28,7 +37,26 @@
       "Bash(git reset --hard*)",
       "Bash(npm publish*)",
       "Bash(shutdown*)",
-      "Bash(reboot*)"
+      "Bash(reboot*)",
+      "Bash(sudo *)",
+      "Bash(chmod 777 *)",
+      "Read(~/.ssh/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.azure/**)",
+      "Read(~/.kube/**)",
+      "Read(~/.npmrc)",
+      "Read(~/.pypirc)",
+      "Read(~/.git-credentials)",
+      "Read(~/.config/gh/**)",
+      "Edit(~/.ssh/**)",
+      "Edit(~/.bashrc)",
+      "Edit(~/.zshrc)",
+      "Edit(~/.gnupg/**)",
+      "Edit(~/.aws/**)",
+      "Write(~/.ssh/**)",
+      "Write(~/.gnupg/**)",
+      "Write(~/.aws/**)"
     ]
   },
   "hooks": {
