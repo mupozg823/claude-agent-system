@@ -1,8 +1,11 @@
 {
   "name": "claude-agent-hooks",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Claude Agent System v3 hooks and relay",
+  "description": "Claude Agent System v4 - hooks, skills, adapters",
+  "scripts": {
+    "test": "node tests/run-all.js"
+  },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.72",
     "@supabase/supabase-js": "^2.98.0",
