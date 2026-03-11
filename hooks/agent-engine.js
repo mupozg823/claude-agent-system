@@ -20,14 +20,15 @@
 
 const fs = require('fs');
 const path = require('path');
+const { LOGS_DIR, AUDIT_DIR, CHECKPOINT_DIR, CONTEXTS_DIR, QUEUE_DIR, ORCH_DIR } = require('./lib/paths');
+const { localDate, writeCheckpoint: _writeCheckpoint, readJsonl, safeRead } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
 const DIRS = {
-  logs: path.join(HOME, '.claude', 'logs'),
-  audit: path.join(HOME, '.claude', 'logs', 'audit'),
-  checkpoints: path.join(HOME, '.claude', 'logs', 'checkpoints'),
-  contexts: path.join(HOME, '.claude', 'contexts'),
-  queue: path.join(HOME, '.claude', 'queue'),
+  logs: LOGS_DIR,
+  audit: AUDIT_DIR,
+  checkpoints: CHECKPOINT_DIR,
+  contexts: CONTEXTS_DIR,
+  queue: QUEUE_DIR,
 };
 
 // Ensure all dirs exist
@@ -35,22 +36,10 @@ for (const d of Object.values(DIRS)) {
   fs.mkdirSync(d, { recursive: true });
 }
 
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-
 // ── Checkpoint System ──
 function writeCheckpoint(summary, pendingTasks = []) {
-  const today = localDate();
-  const file = path.join(DIRS.checkpoints, `checkpoint-${today}.jsonl`);
-  const entry = {
-    ts: new Date().toISOString(),
-    summary,
-    pendingTasks,
-    sessionId: process.env.SESSION_ID || 'unknown',
-  };
-  fs.appendFileSync(file, JSON.stringify(entry) + '\n');
+  const entry = _writeCheckpoint(summary, pendingTasks);
+  entry.sessionId = process.env.SESSION_ID || 'unknown';
   return entry;
 }
 
@@ -465,7 +454,7 @@ function getMetrics() {
 }
 
 // ── DAG Orchestration Support ──
-const ORCH_DIR = path.join(HOME, '.claude', 'orchestrator');
+// ORCH_DIR is imported from lib/paths
 fs.mkdirSync(ORCH_DIR, { recursive: true });
 
 function dagSave(runId, dagData) {
@@ -591,4 +580,23 @@ switch (cmd) {
     console.log('  lane-complete <session> <id>, lane-fail <session> <id>, lane-stats <session>');
     console.log('  dag-save <runId> <json>, dag-load <runId>, dag-list [limit], dag-status <runId>');
     console.log('  global-stats, global-set-max <n>, global-running');
+}
+
+// ── Module Exports (for direct require instead of execSync) ──
+if (typeof module !== 'undefined') {
+  module.exports = {
+    writeCheckpoint,
+    getLatestCheckpoint,
+    queueAdd,
+    queueList,
+    queueComplete,
+    getStatus,
+    getMetrics,
+    cleanup,
+    laneAdd,
+    laneNext,
+    laneComplete,
+    laneFail,
+    laneStats,
+  };
 }

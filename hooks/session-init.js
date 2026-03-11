@@ -13,31 +13,20 @@
 
 const fs = require('fs');
 const path = require('path');
+const { LOGS_DIR, AUDIT_DIR, CHECKPOINT_DIR, CONTEXTS_DIR, QUEUE_DIR } = require('./lib/paths');
+const { safeRead, latestFile } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
 const DIRS = {
-  logs: path.join(HOME, '.claude', 'logs'),
-  audit: path.join(HOME, '.claude', 'logs', 'audit'),
-  checkpoints: path.join(HOME, '.claude', 'logs', 'checkpoints'),
-  contexts: path.join(HOME, '.claude', 'contexts'),
-  queue: path.join(HOME, '.claude', 'queue'),
+  logs: LOGS_DIR,
+  audit: AUDIT_DIR,
+  checkpoints: CHECKPOINT_DIR,
+  contexts: CONTEXTS_DIR,
+  queue: QUEUE_DIR,
 };
 
 function out(s) { process.stdout.write(s); }
 
-function safeRead(fp) {
-  try { return fs.readFileSync(fp, 'utf8'); } catch { return ''; }
-}
-
-function latestFile(dir, ext) {
-  try {
-    const files = fs.readdirSync(dir)
-      .filter(f => f.endsWith(ext))
-      .map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    return files.length > 0 ? path.join(dir, files[0].name) : null;
-  } catch { return null; }
-}
+// safeRead, latestFile → lib/utils.js에서 import
 
 function getCheckpointContext() {
   const cp = latestFile(DIRS.checkpoints, '.jsonl');

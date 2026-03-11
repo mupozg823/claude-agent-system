@@ -12,14 +12,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { AUDIT_DIR } = require('./lib/paths');
+const { localDate, auditFilePath } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-const auditFile = () => path.join(AUDIT_DIR, `audit-${localDate()}.jsonl`);
 const SEQ_FILE = path.join(AUDIT_DIR, '.seq');
 
 const SENSITIVE = [/\.env($|\.)/, /credential/i, /secret/i, /password/i, /token\.json/i, /\.pem$/, /id_rsa/];
@@ -125,7 +120,7 @@ async function main() {
 
   try {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
-    fs.appendFileSync(auditFile(), JSON.stringify(entry) + '\n');
+    fs.appendFileSync(auditFilePath(), JSON.stringify(entry) + '\n');
   } catch (e) {
     // 로그 실패 시 stderr에 경고
     process.stderr.write(`[audit-log] write failed: ${e.message}\n`);

@@ -26,13 +26,13 @@ const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
+const { HOOKS_DIR, COMMANDS_DIR, ORCH_DIR, LOGS_DIR } = require('./lib/paths');
+const { localDate } = require('./lib/utils');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
 const CLAUDE = process.env.CLAUDE_BIN || 'claude';
-const ENGINE = path.join(HOME, '.claude', 'hooks', 'agent-engine.js');
-const SKILLS_DIR = path.join(HOME, '.claude', 'commands');
-const RUNS_DIR = path.join(HOME, '.claude', 'orchestrator');
-const LOGS_DIR = path.join(HOME, '.claude', 'logs');
+const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
+const SKILLS_DIR = COMMANDS_DIR;
+const RUNS_DIR = ORCH_DIR;
 
 fs.mkdirSync(RUNS_DIR, { recursive: true });
 fs.mkdirSync(LOGS_DIR, { recursive: true });

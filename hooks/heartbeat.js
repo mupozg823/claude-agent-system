@@ -16,10 +16,10 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const HEARTBEAT_MD = path.join(HOME, '.claude', 'HEARTBEAT.md');
-const HEARTBEAT_LOG = path.join(HOME, '.claude', 'logs', 'heartbeat.jsonl');
-const ENGINE = path.join(HOME, '.claude', 'hooks', 'agent-engine.js');
+const { CLAUDE_DIR, HOOKS_DIR, LOGS_DIR } = require('./lib/paths');
+const HEARTBEAT_MD = path.join(CLAUDE_DIR, 'HEARTBEAT.md');
+const HEARTBEAT_LOG = path.join(LOGS_DIR, 'heartbeat.jsonl');
+const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
 
 function log(action, result) {
   try {

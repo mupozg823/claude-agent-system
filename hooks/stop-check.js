@@ -12,45 +12,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
-
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-const LOGS_DIR = path.join(HOME, '.claude', 'logs');
-const CHECKPOINT_DIR = path.join(HOME, '.claude', 'logs', 'checkpoints');
-const QUEUE_DIR = path.join(HOME, '.claude', 'queue');
-
-function auditFile() {
-  const d = new Date();
-  const ld = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  return path.join(AUDIT_DIR, `audit-${ld}.jsonl`);
-}
+const { AUDIT_DIR, LOGS_DIR, CHECKPOINT_DIR, QUEUE_DIR } = require('./lib/paths');
+const { auditFilePath, writeCheckpoint, appendJsonl } = require('./lib/utils');
 
 function logEvent(event, detail) {
   try {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
-    fs.appendFileSync(auditFile(), JSON.stringify({
-      ts: new Date().toISOString(),
-      ev: event,
-      ...detail
-    }) + '\n');
-  } catch {}
-}
-
-// 체크포인트 작성
-function writeCheckpoint(summary, pendingTasks = []) {
-  try {
-    fs.mkdirSync(CHECKPOINT_DIR, { recursive: true });
-    const d = new Date();
-    const ld = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const file = path.join(CHECKPOINT_DIR, `checkpoint-${ld}.jsonl`);
-    const entry = {
-      ts: new Date().toISOString(),
-      summary,
-      pendingTasks,
-      type: 'stop',
-    };
-    fs.appendFileSync(file, JSON.stringify(entry) + '\n');
+    appendJsonl(auditFilePath(), { ts: new Date().toISOString(), ev: event, ...detail });
   } catch {}
 }
 

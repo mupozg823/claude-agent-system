@@ -21,15 +21,8 @@
 
 const fs = require('fs');
 const path = require('path');
-
-const HOME = process.env.HOME || process.env.USERPROFILE;
-const AUDIT_DIR = path.join(HOME, '.claude', 'logs', 'audit');
-function localDate() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-const today = localDate;
-const auditFile = () => path.join(AUDIT_DIR, `audit-${today()}.jsonl`);
+const { AUDIT_DIR } = require('./lib/paths');
+const { localDate, auditFilePath } = require('./lib/utils');
 
 // ── 차단 패턴 (파괴적 작업) ──
 const BLOCK = [
@@ -200,7 +193,7 @@ function extractEffectiveCommand(cmd) {
 function log(entry) {
   try {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
-    fs.appendFileSync(auditFile(), JSON.stringify(entry) + '\n');
+    fs.appendFileSync(auditFilePath(), JSON.stringify(entry) + '\n');
   } catch {}
 }
 
