@@ -4,7 +4,9 @@
   "private": true,
   "description": "Claude Agent System v3 hooks and relay",
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.72",
     "@supabase/supabase-js": "^2.98.0",
+    "better-sqlite3": "^12.6.2",
     "ws": "^8.18.0"
   }
 }
