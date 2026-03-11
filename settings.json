@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash",
@@ -10,7 +11,8 @@
       "WebSearch",
       "WebFetch",
       "NotebookEdit",
-      "Task",
+      "TodoWrite",
+      "Agent",
       "Skill",
       "mcp__*"
     ],
@@ -32,7 +34,7 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -44,6 +46,7 @@
     ],
     "UserPromptSubmit": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -87,6 +90,7 @@
     ],
     "PostToolUse": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -98,11 +102,21 @@
     ],
     "Stop": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
             "command": "node \"$HOME/.claude/hooks/stop-check.js\"",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/stop-hook-git-check.sh"
           }
         ]
       }
