@@ -1,6 +1,9 @@
 ---
 name: logging-session
 description: "Saves current session work log as markdown to ~/.claude/logs/. Use when the user says /log, asks to save session log, or wants to record what was done."
+allowed_tools: [Read, Write]
+model: claude-sonnet-4-6
+max_turns: 10
 ---
 
 # Session Log

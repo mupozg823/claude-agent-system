@@ -1,6 +1,9 @@
 ---
 name: checking-status
 description: "Checks system status including CPU, memory, disk, battery, network, and running processes. Use when user asks for system status, health check, or resource usage."
+allowed_tools: [Read, Bash]
+model: claude-sonnet-4-6
+max_turns: 10
 ---
 
 # System Status Check

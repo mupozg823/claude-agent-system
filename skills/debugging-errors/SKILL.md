@@ -1,6 +1,9 @@
 ---
 name: debugging-errors
 description: "Systematic error analysis and debugging using root cause analysis, stack trace parsing, and fix verification. Use when user encounters errors, bugs, exceptions, or asks for debugging help."
+allowed_tools: [Read, Grep, Glob, Bash, Edit, Write, Agent]
+model: claude-opus-4-6
+max_turns: 30
 ---
 
 # Error Debugging

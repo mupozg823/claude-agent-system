@@ -1,6 +1,9 @@
 ---
 name: reviewing-code
 description: "Performs comprehensive code review covering bugs, security vulnerabilities (OWASP Top 10), performance issues, and style consistency. Use when the user asks for code review, wants to check code quality, or mentions reviewing changes."
+allowed_tools: [Read, Grep, Glob, Agent]
+model: claude-sonnet-4-6
+max_turns: 20
 ---
 
 # Code Review

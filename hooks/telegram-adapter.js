@@ -28,7 +28,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { execSync, spawn } = require('child_process');
+const { execSync, execFileSync, spawn } = require('child_process');
 const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR } = require('./lib/paths');
 const { readJsonl, localDate } = require('./lib/utils');
 
@@ -344,7 +344,7 @@ class ClaudeIntegration {
       const args = ['-p', prompt, '--output-format', 'text'];
       if (resumeId) args.push('--resume', resumeId);
 
-      const result = execSync(`claude ${args.map(a => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`, {
+      const result = execFileSync('claude', args, {
         encoding: 'utf8',
         timeout: 120000,
         cwd: cwd === '/' ? process.env.HOME : cwd,
@@ -393,6 +393,9 @@ const BLOCKED = [
   /rm\s+-rf/i, /--force/i, /--hard/i,
   /drop\s+(database|table)/i, /curl.*\|\s*(sh|bash)/i,
   /shutdown/i, /reboot/i, /npm\s+publish/i,
+  /base64.*\|\s*(sh|bash)/i, /\beval\b/i, /\bexec\b/i,
+  /python.*-c/i, /node.*-e/i, /perl.*-e/i,
+  /\bdd\b.*of=/i, /mkfs/i, /format\b/i,
 ];
 function isAllowed(cmd) {
   if (!cmd || typeof cmd !== 'string') return false;
@@ -571,8 +574,16 @@ async function cmdQueue(bot, chatId) {
 async function cmdRun(bot, chatId, command) {
   if (!command) return bot.sendMessage(chatId, 'Usage: /run <command>', { parseMode: undefined });
   if (!isAllowed(command)) return bot.sendMessage(chatId, 'Blocked by security policy.', { parseMode: undefined });
+  // Sanitize: reject shell metacharacters to prevent injection
+  if (/[`$\\|;&<>(){}!\n\r\x00]/.test(command)) {
+    return bot.sendMessage(chatId, 'Blocked: shell metacharacters not allowed.', { parseMode: undefined });
+  }
   try {
-    const output = execSync(command, { encoding: 'utf8', timeout: 30000, cwd: process.env.HOME });
+    // Split command into args and use execFileSync (no shell interpretation)
+    const parts = command.trim().split(/\s+/);
+    const output = execFileSync(parts[0], parts.slice(1), {
+      encoding: 'utf8', timeout: 30000, cwd: process.env.HOME,
+    });
     await bot.sendMessage(chatId, `\`\`\`\n${(output.trim() || '(empty)').slice(0, 3800)}\n\`\`\``);
   } catch (e) {
     await bot.sendMessage(chatId, `Error:\n\`\`\`\n${(e.stderr || e.message || 'error').slice(0, 1000)}\n\`\`\``);

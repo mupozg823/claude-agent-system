@@ -1,6 +1,9 @@
 ---
 name: scanning-security
 description: "보안 취약점 스캔 및 평가"
+allowed_tools: [Read, Grep, Glob, Bash]
+model: claude-sonnet-4-6
+max_turns: 20
 ---
 
 # Security Scan and Vulnerability Assessment
