@@ -26,9 +26,9 @@ const SENSITIVE = [/\.env($|\.)/, /credential/i, /secret/i, /password/i, /token\
 
 // v4.1: Performance integration modules (graceful fallback)
 let cache, telemetry, tokenBudget;
-try { cache = require('./lib/cache'); } catch {}
-try { telemetry = require('./telemetry'); } catch {}
-try { tokenBudget = require('./token-budget'); } catch {}
+try { cache = require('./lib/cache'); } catch { /* silent */ }
+try { telemetry = require('./telemetry'); } catch { /* silent */ }
+try { tokenBudget = require('./token-budget'); } catch { /* silent */ }
 
 // v4.1: Initialize in-memory seq counter from disk (once)
 let _seqInitialized = false;
@@ -63,8 +63,8 @@ function nextSeq() {
     const n = parseInt(fs.readFileSync(SEQ_FILE, 'utf8').trim()) || 0;
     fs.writeFileSync(SEQ_FILE, String(n + 1));
     return n + 1;
-  } catch {
-    try { fs.writeFileSync(SEQ_FILE, '1'); } catch {}
+  } catch { /* silent */
+    try { fs.writeFileSync(SEQ_FILE, '1'); } catch { /* silent */ }
     return 1;
   }
 }
@@ -116,7 +116,7 @@ async function main() {
   for await (const c of process.stdin) raw += c;
 
   let data;
-  try { data = JSON.parse(raw); } catch { return out('{}'); }
+  try { data = JSON.parse(raw); } catch { /* silent */ return out('{}'); }
 
   const tool = data.tool_name;
   const input = data.tool_input || {};
@@ -154,28 +154,28 @@ async function main() {
 
   // v4.1: Track file changes for quality gate
   if (telemetry && (tool === 'Write' || tool === 'Edit') && filePath) {
-    try { telemetry.recordFileChange(filePath); } catch {}
+    try { telemetry.recordFileChange(filePath); } catch { /* silent */ }
   }
 
   // v4.1: Record tool call for telemetry
   if (telemetry) {
-    try { telemetry.recordToolCall(); } catch {}
+    try { telemetry.recordToolCall(); } catch { /* silent */ }
   }
 
   // v4.1: Record turn for token budget
   if (tokenBudget) {
-    try { tokenBudget.recordTurn(); } catch {}
+    try { tokenBudget.recordTurn(); } catch { /* silent */ }
   }
 
   // v4.1: Record hook latency
   if (telemetry) {
     const elapsed = Number(process.hrtime.bigint() - hookStart) / 1e6;
-    try { telemetry.recordHookLatency('audit-log', elapsed); } catch {}
+    try { telemetry.recordHookLatency('audit-log', elapsed); } catch { /* silent */ }
   }
 
   // v4.1: Flush seq counter to disk periodically (every 10 calls)
   if (cache && seq % 10 === 0) {
-    try { cache.flushSeqToDisk('audit', SEQ_FILE); } catch {}
+    try { cache.flushSeqToDisk('audit', SEQ_FILE); } catch { /* silent */ }
   }
 
   out('{}');

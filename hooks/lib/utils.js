@@ -18,7 +18,7 @@ function auditFilePath(date) {
 
 /** 안전한 파일 읽기 (실패 시 빈 문자열) */
 function safeRead(fp) {
-  try { return fs.readFileSync(fp, 'utf8'); } catch { return ''; }
+  try { return fs.readFileSync(fp, 'utf8'); } catch { /* silent */ return ''; }
 }
 
 /** JSONL 파일에서 파싱된 객체 배열 반환 */
@@ -26,7 +26,7 @@ function readJsonl(fp) {
   const content = safeRead(fp).trim();
   if (!content) return [];
   return content.split('\n').filter(Boolean).map(line => {
-    try { return JSON.parse(line); } catch { return null; }
+    try { return JSON.parse(line); } catch { /* silent */ return null; }
   }).filter(Boolean);
 }
 
@@ -57,7 +57,7 @@ function latestFile(dir, ext) {
       .map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
     return files.length > 0 ? path.join(dir, files[0].name) : null;
-  } catch { return null; }
+  } catch { /* silent */ return null; }
 }
 
 /** Atomic file write (temp + rename to prevent corruption) */
@@ -70,7 +70,7 @@ function atomicWrite(filePath, content) {
 
 /** Safe JSON parse with fallback */
 function safeJsonParse(str, fallback = null) {
-  try { return JSON.parse(str); } catch { return fallback; }
+  try { return JSON.parse(str); } catch { /* silent */ return fallback; }
 }
 
 /** Clean old files in directory by extension and max age */
@@ -83,7 +83,7 @@ function compressOldFiles(dir, ext, maxAgeDays) {
       const fp = path.join(dir, f);
       if (now - fs.statSync(fp).mtimeMs > maxMs) fs.unlinkSync(fp);
     }
-  } catch {}
+  } catch { /* silent */ }
 }
 
 // ── Async variants for performance-critical paths ──
@@ -92,7 +92,7 @@ const fsp = require('fs').promises;
 
 /** Async safe file read */
 async function safeReadAsync(fp) {
-  try { return await fsp.readFile(fp, 'utf8'); } catch { return ''; }
+  try { return await fsp.readFile(fp, 'utf8'); } catch { /* silent */ return ''; }
 }
 
 /** Async JSONL read with streaming (memory efficient for large files) */
@@ -100,7 +100,7 @@ async function readJsonlStream(fp) {
   const content = await safeReadAsync(fp);
   if (!content.trim()) return [];
   return content.trim().split('\n').filter(Boolean).map(line => {
-    try { return JSON.parse(line); } catch { return null; }
+    try { return JSON.parse(line); } catch { /* silent */ return null; }
   }).filter(Boolean);
 }
 
@@ -140,7 +140,7 @@ async function latestFileAsync(dir, ext) {
     const result = path.join(dir, withStats[0].name);
     _latestFileCache.set(key, { result, ts: Date.now() });
     return result;
-  } catch {
+  } catch { /* silent */
     _latestFileCache.set(key, { result: null, ts: Date.now() });
     return null;
   }

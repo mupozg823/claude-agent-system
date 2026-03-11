@@ -15,6 +15,7 @@ const COMMANDS_DIR = path.join(CLAUDE_DIR, 'commands');
 const ORCH_DIR = path.join(CLAUDE_DIR, 'orchestrator');
 const SKILLS_DIR = path.join(CLAUDE_DIR, 'skills');
 const TEMP_DIR = path.join(CLAUDE_DIR, '.tmp');
+const SERVICES_DIR = path.join(CLAUDE_DIR, 'services');
 
 module.exports = {
   HOME,
@@ -29,4 +30,5 @@ module.exports = {
   ORCH_DIR,
   SKILLS_DIR,
   TEMP_DIR,
+  SERVICES_DIR,
 };

@@ -29,7 +29,7 @@ function log(action, result) {
       action,
       result,
     }) + '\n');
-  } catch { /* silent */ }
+  } catch {}
 }
 
 function parseHeartbeat() {
@@ -170,7 +170,7 @@ function showStatus() {
     const recent = lines.slice(-5);
     console.log('\n--- Recent heartbeat logs ---');
     for (const l of recent) {
-      try { const e = JSON.parse(l); console.log(`${e.ts} | ${e.action}: ${JSON.stringify(e.result)}`); } catch { /* silent */ }
+      try { const e = JSON.parse(l); console.log(`${e.ts} | ${e.action}: ${JSON.stringify(e.result)}`); } catch {}
     }
   }
 }

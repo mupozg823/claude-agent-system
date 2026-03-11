@@ -18,9 +18,9 @@ const { safeRead, latestFile } = require('./lib/utils');
 
 // v4: Context engine integration for structured snapshot restore
 let contextEngine = null;
-try { contextEngine = require('./context-engine'); } catch {}
+try { contextEngine = require('./context-engine'); } catch { /* silent */ }
 let telemetry = null;
-try { telemetry = require('./telemetry'); } catch {}
+try { telemetry = require('./telemetry'); } catch { /* silent */ }
 
 const DIRS = {
   logs: LOGS_DIR,
@@ -60,7 +60,7 @@ function getCheckpointContext() {
     const age = Date.now() - new Date(last.ts).getTime();
     if (age > 24 * 60 * 60 * 1000) return null; // 24h 이상 지난 건 무시
     return `[체크포인트 ${last.ts}] ${summary}${tasks.length > 0 ? ` | 미완료: ${tasks.join(', ')}` : ''}`;
-  } catch { return null; }
+  } catch { /* silent */ return null; }
 }
 
 function getContextSave() {
@@ -71,7 +71,7 @@ function getContextSave() {
     const age = Date.now() - new Date(data.savedAt).getTime();
     if (age > 48 * 60 * 60 * 1000) return null; // 48h 이상 지난 건 무시
     return `[컨텍스트 ${path.basename(ctx)}] ${data.description || data.task || ''}`.trim();
-  } catch { return null; }
+  } catch { /* silent */ return null; }
 }
 
 function getLogContext() {
@@ -103,7 +103,7 @@ function getQueueContext() {
     try {
       const cmd = JSON.parse(line);
       if (cmd.status === 'pending') pending.push(cmd.command || cmd.description);
-    } catch {}
+    } catch { /* silent */ }
   }
   if (pending.length === 0) return null;
   return `[대기 명령 ${pending.length}개] ${pending.slice(0, 3).join(' | ')}`;
@@ -134,7 +134,7 @@ function main() {
           return;
         }
       }
-    } catch {}
+    } catch (e) { process.stderr.write('[session-init] snapshot restore: ' + e.message + '\n'); }
   }
 
   // Fallback: original 3-tier context loading
@@ -160,4 +160,4 @@ function main() {
   out(JSON.stringify(result));
 }
 
-try { main(); } catch { out('{}'); }
+try { main(); } catch { /* silent */ out('{}'); }

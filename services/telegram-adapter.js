@@ -629,7 +629,7 @@ async function cmdNotify(bot, chatId, config, toggle) {
 function startAuditWatcher(bot, config) {
   let lastSize = 0;
   const auditFile = () => path.join(AUDIT_DIR, `audit-${localDate()}.jsonl`);
-  try { lastSize = fs.readFileSync(auditFile(), 'utf8').length; } catch { /* silent */ }
+  try { lastSize = fs.readFileSync(auditFile(), 'utf8').length; } catch {}
 
   setInterval(() => {
     if (!config.notifyChat) return;
@@ -645,7 +645,7 @@ function startAuditWatcher(bot, config) {
       if (!notable.length) return;
       const lines = notable.map(e => `${e.ok ? '✓' : '✗'} ${e.tool}: ${(e.summary || '').slice(0, 80)}`);
       bot.sendMessage(config.notifyChat, `*Alert* (${notable.length})\n\`\`\`\n${lines.join('\n')}\n\`\`\``).catch(() => {});
-    } catch { /* silent */ }
+    } catch {}
   }, 5000);
 }
 

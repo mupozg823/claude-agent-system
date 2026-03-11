@@ -36,7 +36,7 @@ function httpJson(url, opts = {}) {
       res.on('data', d => body += d);
       res.on('end', () => {
         try { resolve({ status: res.statusCode, data: JSON.parse(body) }); }
-        catch { resolve({ status: res.statusCode, data: body }); }
+        catch { /* silent */ resolve({ status: res.statusCode, data: body }); }
       });
     });
     req.on('error', reject);
@@ -234,7 +234,7 @@ async function main() {
         log('재설정하려면 .supabase-config.json을 삭제하세요.');
         process.exit(0);
       }
-    } catch {}
+    } catch { /* silent */ }
   }
 
   // Start server and open browser

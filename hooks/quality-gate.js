@@ -47,7 +47,7 @@ function getChangedFiles() {
     if (staged) staged.split('\n').forEach(f => files.add(f));
     if (unstaged) unstaged.split('\n').forEach(f => files.add(f));
     return [...files].filter(Boolean);
-  } catch {
+  } catch { /* silent */
     return [];
   }
 }
@@ -69,7 +69,7 @@ function getDiffStat() {
       };
     }
     return { files: 0, additions: 0, deletions: 0, raw: stat };
-  } catch {
+  } catch { /* silent */
     return { files: 0, additions: 0, deletions: 0, raw: '' };
   }
 }
@@ -82,7 +82,7 @@ function hasCommand(cmd) {
       encoding: 'utf8', timeout: 2000, stdio: ['pipe', 'pipe', 'pipe']
     });
     return true;
-  } catch {
+  } catch { /* silent */
     return false;
   }
 }
@@ -181,7 +181,7 @@ function runQualityChecks() {
         suggestions.push(`미커밋: 수정 ${modified}개, 미추적 ${untracked}개`);
       }
     }
-  } catch {}
+  } catch { /* silent */ }
 
   // Determine verdict
   let verdict = 'pass';
@@ -215,7 +215,7 @@ function runAndRecord() {
       warnings: result.warnings.length,
       diff_lines: result.diffStat ? (result.diffStat.additions + result.diffStat.deletions) : 0,
     });
-  } catch {}
+  } catch { /* silent */ }
 
   return result;
 }

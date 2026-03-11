@@ -52,7 +52,7 @@ function getLatestCheckpoint() {
     const content = fs.readFileSync(path.join(DIRS.checkpoints, f), 'utf8').trim();
     const lines = content.split('\n').filter(Boolean);
     if (lines.length > 0) {
-      try { return JSON.parse(lines[lines.length - 1]); } catch {}
+      try { return JSON.parse(lines[lines.length - 1]); } catch (e) { process.stderr.write('[agent-engine] checkpoint parse: ' + e.message + '\n'); }
     }
   }
   return null;
@@ -78,7 +78,7 @@ function queueList(statusFilter = 'pending') {
   if (!fs.existsSync(file)) return [];
   return fs.readFileSync(file, 'utf8').trim().split('\n')
     .filter(Boolean)
-    .map(l => { try { return JSON.parse(l); } catch { return null; } })
+    .map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } })
     .filter(e => e && (statusFilter === 'all' || e.status === statusFilter));
 }
 
@@ -95,7 +95,7 @@ function queueComplete(id) {
         return JSON.stringify(e);
       }
       return l;
-    } catch { return l; }
+    } catch { /* silent */ return l; }
   });
   fs.writeFileSync(file, updated.join('\n') + '\n');
   return true;
@@ -117,11 +117,11 @@ function getStatus() {
       // Count by tool
       const toolCounts = {};
       for (const l of lines) {
-        try { const e = JSON.parse(l); toolCounts[e.tool] = (toolCounts[e.tool] || 0) + 1; } catch {}
+        try { const e = JSON.parse(l); toolCounts[e.tool] = (toolCounts[e.tool] || 0) + 1; } catch { /* silent */ }
       }
       status.system.toolUsage = toolCounts;
     }
-  } catch {}
+  } catch { /* silent */ }
 
   // Checkpoint
   const cp = getLatestCheckpoint();
@@ -135,13 +135,13 @@ function getStatus() {
   try {
     const ctxFiles = fs.readdirSync(DIRS.contexts).filter(f => f.endsWith('.json'));
     status.savedContexts = ctxFiles.length;
-  } catch { status.savedContexts = 0; }
+  } catch { /* silent */ status.savedContexts = 0; }
 
   // Session markers
   try {
     const markers = fs.readdirSync(DIRS.logs).filter(f => f.startsWith('.last-session-'));
     status.recentSessions = markers.length;
-  } catch {}
+  } catch { /* silent */ }
 
   return status;
 }
@@ -159,7 +159,7 @@ function cleanup() {
         fs.unlinkSync(fp); results.deleted++;
       }
     }
-  } catch { results.errors++; }
+  } catch { /* silent */ results.errors++; }
 
   // 14-day checkpoints
   try {
@@ -169,7 +169,7 @@ function cleanup() {
         fs.unlinkSync(fp); results.deleted++;
       }
     }
-  } catch { results.errors++; }
+  } catch { /* silent */ results.errors++; }
 
   // 7-day session markers
   try {
@@ -180,7 +180,7 @@ function cleanup() {
         fs.unlinkSync(fp); results.deleted++;
       }
     }
-  } catch { results.errors++; }
+  } catch { /* silent */ results.errors++; }
 
   // Completed queue items older than 7 days
   const queueFile = path.join(DIRS.queue, 'commands.jsonl');
@@ -194,10 +194,10 @@ function cleanup() {
             results.deleted++; return false;
           }
           return true;
-        } catch { return true; }
+        } catch { /* silent */ return true; }
       });
       fs.writeFileSync(queueFile, kept.join('\n') + '\n');
-    } catch { results.errors++; }
+    } catch { /* silent */ results.errors++; }
   }
 
   return results;
@@ -220,14 +220,14 @@ function loadGlobalState() {
       data.running = (data.running || []).filter(r => now - new Date(r.ts).getTime() < 300_000);
       return data;
     }
-  } catch {}
+  } catch { /* silent */ }
   return { maxConcurrent: DEFAULT_MAX_CONCURRENT, running: [], totalCompleted: 0, totalFailed: 0 };
 }
 
 function saveGlobalState(state) {
   try {
     fs.writeFileSync(GLOBAL_LOCK_FILE, JSON.stringify(state, null, 2));
-  } catch {}
+  } catch { /* silent */ }
 }
 
 function laneFile(sessionId) {
@@ -259,7 +259,7 @@ function laneList(sessionId, statusFilter = 'all') {
   if (!fs.existsSync(file)) return [];
   return fs.readFileSync(file, 'utf8').trim().split('\n')
     .filter(Boolean)
-    .map(l => { try { return JSON.parse(l); } catch { return null; } })
+    .map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } })
     .filter(e => e && (statusFilter === 'all' || e.status === statusFilter));
 }
 
@@ -287,7 +287,7 @@ function laneNext(sessionId) {
       }
       // Stale lock - remove it
       fs.unlinkSync(lock);
-    } catch { fs.unlinkSync(lock); }
+    } catch { /* silent */ fs.unlinkSync(lock); }
   }
 
   // Get next pending (priority: urgent > high > normal > low)
@@ -325,7 +325,7 @@ function laneComplete(sessionId, id, result = null) {
     try {
       const lockData = JSON.parse(fs.readFileSync(lock, 'utf8'));
       if (lockData.id === id) fs.unlinkSync(lock);
-    } catch { fs.unlinkSync(lock); }
+    } catch { /* silent */ fs.unlinkSync(lock); }
   }
   // Update global state
   const globalState = loadGlobalState();
@@ -363,7 +363,7 @@ function laneUpdateStatus(sessionId, id, newStatus, result = null, error = null)
         return JSON.stringify(e);
       }
       return l;
-    } catch { return l; }
+    } catch { /* silent */ return l; }
   });
   fs.writeFileSync(file, updated.join('\n') + '\n');
   return true;
@@ -391,7 +391,7 @@ function globalStats() {
       const sessionId = f.replace('lane-', '').replace('.jsonl', '');
       sessionStats[sessionId] = laneStats(sessionId);
     }
-  } catch {}
+  } catch { /* silent */ }
 
   return {
     maxConcurrent: state.maxConcurrent || DEFAULT_MAX_CONCURRENT,
@@ -417,7 +417,7 @@ function getMetrics() {
   if (!fs.existsSync(file)) return { total: 0, message: 'No audit log for today' };
 
   const lines = fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
-  const entries = lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const entries = lines.map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } }).filter(Boolean);
 
   let ok = 0, errors = 0, blocked = 0;
   const tools = {}, groups = {};
@@ -467,7 +467,7 @@ function dagLoad(runId) {
   const file = path.join(ORCH_DIR, `${runId}.json`);
   if (!fs.existsSync(file)) return null;
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
-  catch { return null; }
+  catch (e) { process.stderr.write('[agent-engine] dag parse: ' + e.message + '\n'); return null; }
 }
 
 function dagList(limit = 10) {
@@ -480,9 +480,9 @@ function dagList(limit = 10) {
         try {
           const d = JSON.parse(fs.readFileSync(path.join(ORCH_DIR, f), 'utf8'));
           return { runId: d.runId, goal: (d.goal || '').slice(0, 60), state: d.state, steps: d.dag?.length || 0 };
-        } catch { return { file: f }; }
+        } catch { /* silent */ return { file: f }; }
       });
-  } catch { return []; }
+  } catch { /* silent */ return []; }
 }
 
 function dagStatus(runId) {

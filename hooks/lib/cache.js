@@ -105,7 +105,7 @@ function getSkillRules(rulesPath) {
     _skillRulesMtime = stat.mtimeMs;
     _compiledPatterns = null; // invalidate compiled patterns
     return _skillRulesCache;
-  } catch {
+  } catch { /* silent */
     return null;
   }
 }
@@ -127,7 +127,7 @@ function getCompiledPatterns(rulesPath) {
     for (const pat of (skill.patterns || [])) {
       try {
         regexps.push(new RegExp(pat, 'i'));
-      } catch {
+      } catch { /* silent */
         // skip invalid regex
       }
     }
@@ -161,7 +161,7 @@ function initSeqFromDisk(key, filePath) {
   try {
     const val = parseInt(fs.readFileSync(filePath, 'utf8').trim()) || 0;
     _seqCounters.set(key, val);
-  } catch {
+  } catch { /* silent */
     _seqCounters.set(key, 0);
   }
 }
@@ -176,7 +176,7 @@ function flushSeqToDisk(key, filePath) {
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, String(val));
-  } catch {}
+  } catch { /* silent */ }
 }
 
 // ── Checkpoint LRU ──

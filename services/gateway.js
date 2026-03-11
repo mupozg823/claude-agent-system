@@ -59,7 +59,7 @@ function log(level, msg) {
     fs.appendFileSync(GATEWAY_LOG, JSON.stringify({
       ts: new Date().toISOString(), level, msg,
     }) + '\n');
-  } catch { /* silent */ }
+  } catch {}
 }
 
 // localDate() imported from lib/utils
@@ -214,7 +214,7 @@ function loadWebhookSecret() {
       const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
       return config.webhookSecret || null;
     }
-  } catch { /* silent */ }
+  } catch {}
   return process.env.GATEWAY_WEBHOOK_SECRET || null;
 }
 
@@ -291,7 +291,7 @@ class SessionStore {
         }
         log('info', `Loaded ${this.sessions.size} sessions`);
       }
-    } catch { /* silent */ }
+    } catch {}
   }
 
   _save() {
@@ -301,7 +301,7 @@ class SessionStore {
         data[id] = session;
       }
       fs.writeFileSync(this.file, JSON.stringify(data, null, 2));
-    } catch { /* silent */ }
+    } catch {}
   }
 
   get(id) {
@@ -484,7 +484,7 @@ class AuditTailer {
         if (!filename || !filename.startsWith('audit-')) return;
         this._flush();
       });
-    } catch { /* silent */ }
+    } catch {}
 
     this._pollInterval = setInterval(() => this._flush(), 1500);
     log('info', `Audit tailer started: ${this.auditDir}`);
@@ -512,7 +512,7 @@ class AuditTailer {
       for (const entry of entries) {
         if (this.onEntry) this.onEntry(entry);
       }
-    } catch { /* silent */ }
+    } catch {}
   }
 
   stop() {
@@ -591,7 +591,7 @@ class SupabaseAdapter {
         event,
         payload: { ...payload, _ts: new Date().toISOString() },
       });
-    } catch { /* silent */ }
+    } catch {}
   }
 
   async disconnect() {
@@ -673,7 +673,7 @@ class CommandExecutor {
         matchType: routed.matchType,
         original: command,
       }) + '\n');
-    } catch { /* silent */ }
+    } catch {}
 
     // Execute the routed claude -p command
     const result = await this._shell(routed.command, sessionId);
@@ -993,7 +993,7 @@ class Gateway extends EventEmitter {
       if (fs.existsSync(outboxFile)) {
         this._orchOutboxOffset = fs.readFileSync(outboxFile, 'utf8').split('\n').filter(Boolean).length;
       }
-    } catch { /* silent */ }
+    } catch {}
 
     this._orchTimer = setInterval(() => {
       try {
@@ -1008,9 +1008,9 @@ class Gateway extends EventEmitter {
           try {
             const msg = JSON.parse(line);
             if (msg.event && msg.payload) this._broadcastAll(msg.event, msg.payload);
-          } catch { /* silent */ }
+          } catch {}
         }
-      } catch { /* silent */ }
+      } catch {}
     }, 3_000);
 
     // Write PID file
@@ -1039,7 +1039,7 @@ class Gateway extends EventEmitter {
       this.wss.close();
       this.server.close();
 
-      try { fs.unlinkSync(GATEWAY_PID); } catch { /* silent */ }
+      try { fs.unlinkSync(GATEWAY_PID); } catch {}
       log('info', 'Gateway stopped');
       process.exit(0);
     };
@@ -1397,7 +1397,7 @@ function isRunning() {
     process.kill(pid, 0); // Signal 0 = check existence
     return pid;
   } catch {
-    try { fs.unlinkSync(GATEWAY_PID); } catch { /* silent */ }
+    try { fs.unlinkSync(GATEWAY_PID); } catch {}
     return false;
   }
 }

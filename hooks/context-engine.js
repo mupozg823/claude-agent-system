@@ -25,7 +25,7 @@ const SNAPSHOT_DIR = path.join(CHECKPOINT_DIR, 'snapshots');
 // ── Git helpers ──
 
 function gitExec(cmd) {
-  try { return execSync(cmd, { encoding: 'utf8', timeout: 3000, stdio: ['pipe', 'pipe', 'pipe'] }).trim(); } catch { return null; }
+  try { return execSync(cmd, { encoding: 'utf8', timeout: 3000, stdio: ['pipe', 'pipe', 'pipe'] }).trim(); } catch { /* silent */ return null; }
 }
 
 function getGitState() {
@@ -102,10 +102,10 @@ function getPendingTasks() {
         if (cmd.status === 'completed') result.completed.push(desc);
         else if (cmd.status === 'blocked') result.blocked.push(desc);
         else result.pending.push(desc);
-      } catch {}
+      } catch { /* silent */ }
     }
     return result;
-  } catch { return { completed: [], pending: [], blocked: [] }; }
+  } catch { /* silent */ return { completed: [], pending: [], blocked: [] }; }
 }
 
 // ── Save: Create structured snapshot ──
@@ -140,7 +140,7 @@ function createSnapshot(sessionId) {
       try {
         const last = JSON.parse(lines[lines.length - 1]);
         if (last.pendingTasks) nextSteps.push(...last.pendingTasks);
-      } catch {}
+      } catch { /* silent */ }
     }
   }
 
@@ -192,7 +192,7 @@ function restoreSnapshot() {
 
     checkpointCache.set('latest-snapshot', snapshot);
     return snapshot;
-  } catch { return null; }
+  } catch (e) { process.stderr.write('[context-engine] restore: ' + e.message + '\n'); return null; }
 }
 
 /**
@@ -248,7 +248,7 @@ function cleanupSnapshots() {
     for (const f of files.slice(10)) {
       fs.unlinkSync(path.join(SNAPSHOT_DIR, f.name));
     }
-  } catch {}
+  } catch { /* silent */ }
 }
 
 // ── CLI / Hook mode ──

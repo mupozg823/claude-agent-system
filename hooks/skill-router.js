@@ -74,7 +74,7 @@ function matchSkill(command) {
             });
             break; // One match per skill is enough
           }
-        } catch {}
+        } catch { /* silent */ }
       }
     }
 
@@ -121,7 +121,7 @@ function getSkillContext(skillName) {
       // Return first 500 chars as context hint
       return content.slice(0, 500).trim();
     }
-  } catch {}
+  } catch { /* silent */ }
   return null;
 }
 
@@ -211,9 +211,9 @@ function getMcpStats(auditDir) {
             stats.lastSeen[server] = entry.ts || entry.timestamp;
           }
         }
-      } catch {}
+      } catch { /* silent */ }
     }
-  } catch {}
+  } catch { /* silent */ }
 
   return stats;
 }
@@ -240,9 +240,9 @@ function getSkillStats(auditDir) {
           stats.skills[skill] = (stats.skills[skill] || 0) + 1;
           stats.totalRouted++;
         }
-      } catch {}
+      } catch { /* silent */ }
     }
-  } catch {}
+  } catch { /* silent */ }
 
   return stats;
 }

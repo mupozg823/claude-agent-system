@@ -131,7 +131,7 @@ async function setup() {
                       process.platform === 'darwin' ? 'open' : 'xdg-open';
       exec(`${openCmd} "https://supabase.com/dashboard/account/tokens"`);
       console.log('  (브라우저가 열렸습니다)\n');
-    } catch { /* silent */ }
+    } catch {}
 
     token = await prompt('  Access Token 입력: ');
     if (!token) { console.error('  토큰이 필요합니다.'); process.exit(1); }
@@ -590,7 +590,7 @@ async function main() {
           log('info', 'Attempting reconnect...');
           try {
             await channel.unsubscribe();
-          } catch { /* silent */ }
+          } catch {}
           subscribeWithReconnect();
         });
       } else if (status === 'TIMED_OUT') {
@@ -599,7 +599,7 @@ async function main() {
           log('info', 'Attempting reconnect after timeout...');
           try {
             await channel.unsubscribe();
-          } catch { /* silent */ }
+          } catch {}
           subscribeWithReconnect();
         });
       }
@@ -746,7 +746,7 @@ async function main() {
     if (fs.existsSync(ORCH_OUTBOX)) {
       orchOutboxOffset = fs.readFileSync(ORCH_OUTBOX, 'utf8').split('\n').filter(Boolean).length;
     }
-  } catch { /* silent */ }
+  } catch {}
 
   const orchTimer = setInterval(async () => {
     try {
@@ -763,9 +763,9 @@ async function main() {
           if (msg.event && msg.payload) {
             await broadcast(msg.event, msg.payload);
           }
-        } catch { /* silent */ }
+        } catch {}
       }
-    } catch { /* silent */ }
+    } catch {}
   }, 3_000); // 3s poll
 
   // ── Graceful Shutdown ──
@@ -784,7 +784,7 @@ async function main() {
     try {
       await channel.untrack();
       await supabase.removeChannel(channel);
-    } catch { /* silent */ }
+    } catch {}
 
     log('info', 'Relay stopped.');
     process.exit(0);

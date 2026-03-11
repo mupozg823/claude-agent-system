@@ -78,7 +78,7 @@ function loadSkillMap() {
       const name = f.replace('.md', '');
       map[name] = { file: path.join(SKILLS_DIR, f), name };
     }
-  } catch { /* silent */ }
+  } catch {}
 
   return { skills: map, aliases };
 }
@@ -163,19 +163,19 @@ class Orchestrator extends EventEmitter {
         ctx.deps = Object.keys(pkg.dependencies || {}).length;
         ctx.devDeps = Object.keys(pkg.devDependencies || {}).length;
       }
-    } catch { /* silent */ }
+    } catch {}
 
     // Collect directory structure (top-level only)
     try {
       ctx.files = fs.readdirSync(this.projectPath).filter(f => !f.startsWith('.')).slice(0, 30);
-    } catch { /* silent */ }
+    } catch {}
 
     // Check git status
     try {
       ctx.gitBranch = execSync('git branch --show-current', {
         cwd: this.projectPath, encoding: 'utf8', timeout: 5000
       }).trim();
-    } catch { /* silent */ }
+    } catch {}
 
     this.context = ctx;
     this.emit('context-collected', ctx);
@@ -519,7 +519,7 @@ class Orchestrator extends EventEmitter {
       });
       return result || '';
     } finally {
-      try { fs.unlinkSync(tmpFile); } catch { /* silent */ }
+      try { fs.unlinkSync(tmpFile); } catch {}
     }
   }
 
@@ -561,7 +561,7 @@ class Orchestrator extends EventEmitter {
       execSync(`node "${ENGINE}" checkpoint "${result.status}: ${this.goal.slice(0, 60)}"`, {
         encoding: 'utf8', timeout: 5000,
       });
-    } catch { /* silent */ }
+    } catch {}
 
     // Write run log
     const logFile = path.join(LOGS_DIR, `orch-${this.runId}.md`);
@@ -725,7 +725,7 @@ function log(level, msg) {
   try {
     const logFile = path.join(LOGS_DIR, 'orchestrator.jsonl');
     fs.appendFileSync(logFile, JSON.stringify({ ts: new Date().toISOString(), level, msg }) + '\n');
-  } catch { /* silent */ }
+  } catch {}
 }
 
 // ── Broadcast Helper (when relay is available) ──
@@ -734,7 +734,7 @@ function broadcastToRelay(event, payload) {
   try {
     const outbox = path.join(RUNS_DIR, 'outbox.jsonl');
     fs.appendFileSync(outbox, JSON.stringify({ event, payload, ts: new Date().toISOString() }) + '\n');
-  } catch { /* silent */ }
+  } catch {}
 }
 
 // ── CLI ──

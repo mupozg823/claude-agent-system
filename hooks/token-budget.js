@@ -40,7 +40,7 @@ function loadState() {
   try {
     _state = JSON.parse(safeRead(STATE_FILE));
     if (!_state || !_state.sessionStart) throw new Error('invalid');
-  } catch {
+  } catch { /* silent */
     _state = {
       sessionStart: Date.now(),
       turnCount: 0,
@@ -57,7 +57,7 @@ function saveState() {
   try {
     fs.mkdirSync(TEMP_DIR, { recursive: true });
     fs.writeFileSync(STATE_FILE, JSON.stringify(_state));
-  } catch {}
+  } catch { /* silent */ }
 }
 
 // ── Token estimation ──
@@ -79,7 +79,7 @@ function estimateTokenUsage() {
       const content = safeRead(auditFile);
       entryCount = content ? content.split('\n').filter(Boolean).length : 0;
       fileCache.set(cacheKey, entryCount);
-    } catch {
+    } catch { /* silent */
       entryCount = 0;
     }
   }
@@ -186,8 +186,9 @@ function recordCompaction() {
  */
 function formatStatusLine() {
   const budget = getTokenBudget();
-  const bar = '█'.repeat(Math.floor(budget.usedPct / 10)) +
-              '░'.repeat(10 - Math.floor(budget.usedPct / 10));
+  const pct = Math.max(0, Math.min(100, budget.usedPct));
+  const filled = Math.floor(pct / 10);
+  const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
   const icon = budget.action === 'compact-now' ? '🔴' :
                budget.action === 'compact-soon' ? '🟡' : '🟢';
 
@@ -234,7 +235,7 @@ if (require.main === module) {
       break;
     case 'reset':
       _state = null;
-      try { fs.unlinkSync(STATE_FILE); } catch {}
+      try { fs.unlinkSync(STATE_FILE); } catch { /* silent */ }
       console.log('Token budget state reset.');
       break;
     default:

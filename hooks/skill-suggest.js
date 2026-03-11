@@ -14,13 +14,13 @@ const RULES_PATH = path.join(__dirname, 'skill-rules.json');
 
 // v4.1: Use cached skill rules and pre-compiled regex patterns
 let cache = null;
-try { cache = require('./lib/cache'); } catch {}
+try { cache = require('./lib/cache'); } catch { /* silent */ }
 
 function loadRules() {
   if (cache) return cache.getSkillRules(RULES_PATH);
   try {
     return JSON.parse(fs.readFileSync(RULES_PATH, 'utf8'));
-  } catch {
+  } catch { /* silent */
     return null;
   }
 }
@@ -55,7 +55,7 @@ function scoreSkill(skill, prompt, categories) {
         if (new RegExp(pat, 'i').test(prompt)) {
           score += 25;
         }
-      } catch {}
+      } catch { /* silent */ }
     }
   }
 
@@ -80,7 +80,7 @@ async function main() {
   let data;
   try {
     data = JSON.parse(input);
-  } catch {
+  } catch { /* silent */
     process.stdout.write('{}');
     return;
   }

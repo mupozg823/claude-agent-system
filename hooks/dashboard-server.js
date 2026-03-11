@@ -55,9 +55,9 @@ function readAllEntries() {
   try {
     return fs.readFileSync(file, 'utf8').trim().split('\n')
       .filter(Boolean)
-      .map(l => { try { return JSON.parse(l); } catch { return null; } })
+      .map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } })
       .filter(Boolean);
-  } catch { return []; }
+  } catch (e) { process.stderr.write('[dashboard] readAllEntries: ' + e.message + '\n'); return []; }
 }
 
 function getStatus() {
@@ -67,9 +67,9 @@ function getStatus() {
     const qFile = path.join(QUEUE_DIR, 'commands.jsonl');
     if (fs.existsSync(qFile)) {
       queuePending = fs.readFileSync(qFile, 'utf8').trim().split('\n')
-        .filter(l => { try { return JSON.parse(l).status === 'pending'; } catch { return false; } }).length;
+        .filter(l => { try { return JSON.parse(l).status === 'pending'; } catch { /* silent */ return false; } }).length;
     }
-  } catch {}
+  } catch (e) { process.stderr.write('[dashboard] queue read: ' + e.message + '\n'); }
 
   // Checkpoint
   let lastCheckpoint = null;
@@ -79,7 +79,7 @@ function getStatus() {
       const lines = fs.readFileSync(path.join(CHECKPOINT_DIR, files[0]), 'utf8').trim().split('\n').filter(Boolean);
       if (lines.length > 0) lastCheckpoint = JSON.parse(lines[lines.length - 1]);
     }
-  } catch {}
+  } catch (e) { process.stderr.write('[dashboard] checkpoint read: ' + e.message + '\n'); }
 
   const entries = cachedEntries;
   const toolCounts = {};
@@ -222,7 +222,7 @@ function pushNewEntries() {
     for (const entry of newEntries) {
       const data = `data: ${JSON.stringify(entry)}\n\n`;
       sseClients = sseClients.filter(res => {
-        try { res.write(data); return true; } catch { return false; }
+        try { res.write(data); return true; } catch { /* silent */ return false; }
       });
     }
   }
@@ -232,10 +232,10 @@ function pushNewEntries() {
 function startWatcher() {
   const file = todayFile();
   // Ensure audit dir exists
-  try { fs.mkdirSync(AUDIT_DIR, { recursive: true }); } catch {}
+  try { fs.mkdirSync(AUDIT_DIR, { recursive: true }); } catch { /* silent */ }
   // Ensure file exists for watcher
   if (!fs.existsSync(file)) {
-    try { fs.writeFileSync(file, ''); } catch {}
+    try { fs.writeFileSync(file, ''); } catch { /* silent */ }
   }
 
   try {
@@ -252,7 +252,7 @@ function startWatcher() {
       startPolling();
     });
     console.log(`[watch] fs.watch active on ${path.basename(file)}`);
-  } catch {
+  } catch { /* silent */
     console.log('[watch] fs.watch unavailable, using 2s polling');
     startPolling();
   }
@@ -354,7 +354,7 @@ const server = http.createServer((req, res) => {
           ? fs.readFileSync(qFile, 'utf8').trim().split('\n').filter(Boolean).map(l => JSON.parse(l))
           : [];
         res.end(JSON.stringify(items));
-      } catch { res.end('[]'); }
+      } catch (e) { process.stderr.write('[dashboard] queue api: ' + e.message + '\n'); res.end('[]'); }
       break;
 
     case '/api/qr': {

@@ -153,7 +153,7 @@ function readMetrics(days = 7) {
     for (const f of files) {
       entries.push(...readJsonl(path.join(TELEMETRY_DIR, f)));
     }
-  } catch {}
+  } catch { /* silent */ }
   return entries;
 }
 
@@ -240,7 +240,7 @@ function benchmarkHooks() {
   }
 
   // Cleanup
-  try { fs.unlinkSync(testFile); } catch {}
+  try { fs.unlinkSync(testFile); } catch { /* silent */ }
 
   console.log('Hook I/O Benchmark Results:');
   console.log('─'.repeat(50));

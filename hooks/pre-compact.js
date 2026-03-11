@@ -17,16 +17,16 @@ const { safeRead, localDate, latestFile, atomicWrite, readJsonl } = require('./l
 
 // v4.1: Context engine for structured snapshots + telemetry
 let contextEngine = null;
-try { contextEngine = require('./context-engine'); } catch {}
+try { contextEngine = require('./context-engine'); } catch { /* silent */ }
 let telemetry = null;
-try { telemetry = require('./telemetry'); } catch {}
+try { telemetry = require('./telemetry'); } catch { /* silent */ }
 let tokenBudget = null;
-try { tokenBudget = require('./token-budget'); } catch {}
+try { tokenBudget = require('./token-budget'); } catch { /* silent */ }
 
 function out(s) { process.stdout.write(s); }
 
 function gitExec(cmd) {
-  try { return execSync(cmd, { encoding: 'utf8', timeout: 3000 }).trim(); } catch { return null; }
+  try { return execSync(cmd, { encoding: 'utf8', timeout: 3000 }).trim(); } catch { /* silent */ return null; }
 }
 
 function main() {
@@ -71,7 +71,7 @@ function main() {
           if (last.pendingTasks && last.pendingTasks.length > 0) {
             sections.push(`- Pending: ${last.pendingTasks.join(', ')}`);
           }
-        } catch {}
+        } catch { /* silent */ }
       }
     }
 
@@ -94,15 +94,15 @@ function main() {
 
     // v4.1: Also create structured JSON snapshot (for context-engine restore)
     if (contextEngine) {
-      try { contextEngine.createSnapshot(); } catch {}
+      try { contextEngine.createSnapshot(); } catch { /* silent */ }
     }
 
     // v4.1: Record compaction event in telemetry + token budget
     if (telemetry) {
-      try { telemetry.recordCompaction(); } catch {}
+      try { telemetry.recordCompaction(); } catch { /* silent */ }
     }
     if (tokenBudget) {
-      try { tokenBudget.recordCompaction(); } catch {}
+      try { tokenBudget.recordCompaction(); } catch { /* silent */ }
     }
 
     out('{}');
