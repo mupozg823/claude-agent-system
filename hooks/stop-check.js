@@ -133,8 +133,20 @@ async function main() {
   const pendingQueue = checkQueue();
   if (pendingQueue > 0) incScore += Math.ceil(Math.log2(pendingQueue + 1)) * 2;
 
-  // 결정: 미완료 가중치가 완료 가중치보다 높으면 차단
-  const shouldBlock = incScore >= 4 && compScore < incScore;
+  // Ambiguity detection: let prompt hook handle uncertain cases
+  const isAmbiguous = incScore >= 3 && incScore <= 5 && Math.abs(incScore - compScore) <= 2;
+
+  // 결정: 미완료 가중치가 완료 가중치보다 높으면 차단 (애매한 경우 제외)
+  const shouldBlock = !isAmbiguous && incScore >= 4 && compScore < incScore;
+
+  if (isAmbiguous) {
+    logEvent('stop', { decision: 'uncertain', incScore, compScore, incHits, compHits, pendingQueue });
+    // Pass through — prompt hook will evaluate
+    writeCheckpoint('세션 종료 (AI 판단 위임)', incHits);
+    writeSessionMarker();
+    cleanup();
+    return out('{}');
+  }
 
   if (shouldBlock) {
     // 체크포인트 기록 (미완료 상태로 종료 시)

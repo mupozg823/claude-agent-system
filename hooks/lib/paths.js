@@ -13,6 +13,8 @@ const CONTEXTS_DIR = path.join(CLAUDE_DIR, 'contexts');
 const QUEUE_DIR = path.join(CLAUDE_DIR, 'queue');
 const COMMANDS_DIR = path.join(CLAUDE_DIR, 'commands');
 const ORCH_DIR = path.join(CLAUDE_DIR, 'orchestrator');
+const SKILLS_DIR = path.join(CLAUDE_DIR, 'skills');
+const TEMP_DIR = path.join(CLAUDE_DIR, '.tmp');
 
 module.exports = {
   HOME,
@@ -25,4 +27,6 @@ module.exports = {
   QUEUE_DIR,
   COMMANDS_DIR,
   ORCH_DIR,
+  SKILLS_DIR,
+  TEMP_DIR,
 };

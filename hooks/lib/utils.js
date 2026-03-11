@@ -60,6 +60,32 @@ function latestFile(dir, ext) {
   } catch { return null; }
 }
 
+/** Atomic file write (temp + rename to prevent corruption) */
+function atomicWrite(filePath, content) {
+  const tmp = filePath + '.tmp';
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(tmp, content);
+  fs.renameSync(tmp, filePath);
+}
+
+/** Safe JSON parse with fallback */
+function safeJsonParse(str, fallback = null) {
+  try { return JSON.parse(str); } catch { return fallback; }
+}
+
+/** Clean old files in directory by extension and max age */
+function compressOldFiles(dir, ext, maxAgeDays) {
+  const now = Date.now();
+  const maxMs = maxAgeDays * 86400000;
+  try {
+    for (const f of fs.readdirSync(dir)) {
+      if (!f.endsWith(ext)) continue;
+      const fp = path.join(dir, f);
+      if (now - fs.statSync(fp).mtimeMs > maxMs) fs.unlinkSync(fp);
+    }
+  } catch {}
+}
+
 module.exports = {
   localDate,
   auditFilePath,
@@ -68,4 +94,7 @@ module.exports = {
   appendJsonl,
   writeCheckpoint,
   latestFile,
+  atomicWrite,
+  safeJsonParse,
+  compressOldFiles,
 };

@@ -1,4 +1,4 @@
-# Claude Agent System v4
+# Claude Agent System v5
 
 ## 운영 원칙
 - **한국어 대화**, 코드/로그는 영어
@@ -6,12 +6,22 @@
 - 막히면 3가지 대안 먼저 시도
 - 작업 끝날 때까지 멈추지 않기 (Stop 훅이 미완료 감지)
 
+## 비용 최적화 (env)
+- 서브에이전트: Haiku 모델 사용 (80% 절감)
+- 사고 토큰: 10K 제한 (70% 절감)
+- 자동 압축: 85% 트리거
+- 불필요한 모델 호출 비활성화
+
 ## 훅 파이프라인
 ```
 SessionStart  → session-init.js     체크포인트/컨텍스트 복원
 UserPrompt    → skill-suggest.js    스킬 자동 추천
+PreCompact    → pre-compact.js      압축 전 상태 백업
 PostToolUse   → audit-log.js        JSONL 감사 로그
-Stop          → stop-check.js       미완료 감지 + 체크포인트
+Stop          → stop-check.js       미완료 감지 (하이브리드)
+              → prompt hook          AI 판단 (애매한 경우)
+              → git-check.sh        미커밋 변경 확인
+StatusLine    → statusline.sh       컨텍스트 모니터링
 ```
 
 ## 코어 엔진
@@ -54,11 +64,12 @@ Legacy (`commands/`): /log, /continue, /status, /optimize, /review, /fix-all, /d
 ## 디렉토리
 ```
 ~/.claude/
-├── hooks/           15 JS 모듈 + lib/paths.js + lib/utils.js
+├── hooks/           17 JS/SH 모듈 + lib/paths.js + lib/utils.js
 ├── skills/          Skills 2.0 (SKILL.md + 번들 파일)
 ├── commands/        Legacy 48개 스킬
 ├── logs/audit/      JSONL 감사 로그 (30일)
-├── logs/checkpoints/ 세션 체크포인트 (14일)
+├── logs/checkpoints/ 세션/컴팩트 체크포인트 (14일)
+├── .tmp/            StatusLine 상태 캐시
 ├── orchestrator/    DAG + outbox
 ├── queue/           명령 큐
 └── settings.json    권한/훅/프라이버시

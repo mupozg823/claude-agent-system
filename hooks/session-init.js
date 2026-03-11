@@ -29,6 +29,19 @@ function out(s) { process.stdout.write(s); }
 // safeRead, latestFile → lib/utils.js에서 import
 
 function getCheckpointContext() {
+  // 1) Check compact checkpoints (.md) first — created by pre-compact.js
+  const compactCp = latestFile(DIRS.checkpoints, '.md');
+  if (compactCp) {
+    const content = safeRead(compactCp);
+    if (content) {
+      const age = Date.now() - fs.statSync(compactCp).mtimeMs;
+      if (age < 24 * 60 * 60 * 1000) {
+        return `[컴팩트 체크포인트 ${path.basename(compactCp)}] ${content.slice(0, 500)}`;
+      }
+    }
+  }
+
+  // 2) Regular JSONL checkpoints
   const cp = latestFile(DIRS.checkpoints, '.jsonl');
   if (!cp) return null;
   const lines = safeRead(cp).trim().split('\n').filter(Boolean);
