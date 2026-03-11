@@ -114,6 +114,18 @@ function deployHooks(env) {
 function deployServices(env) {
   if (!fs.existsSync(SOURCE_SERVICES)) return 'no-source';
 
+  // Skip if already deployed and up to date
+  if (fs.existsSync(TARGET_SERVICES)) {
+    const testFile = path.join(TARGET_SERVICES, 'orchestrator.js');
+    if (fs.existsSync(testFile)) {
+      try {
+        const srcStat = fs.statSync(path.join(SOURCE_SERVICES, 'orchestrator.js'));
+        const destStat = fs.statSync(testFile);
+        if (srcStat.size === destStat.size && srcStat.mtimeMs <= destStat.mtimeMs) return 'skipped';
+      } catch { /* proceed to deploy */ }
+    }
+  }
+
   if (env.platform === 'desktop') {
     try {
       if (fs.existsSync(TARGET_SERVICES)) {

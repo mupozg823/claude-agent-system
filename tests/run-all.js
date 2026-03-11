@@ -148,9 +148,17 @@ test('skill-suggest.js returns JSON', () => {
   if (out) JSON.parse(out);
 });
 
-// smart-approve.js was removed — tests skipped
-skip('smart-approve.js auto-approves safe command (module removed)');
-skip('smart-approve.js blocks dangerous command (module removed)');
+// bootstrap.js tests
+test('bootstrap.js returns valid JSON', () => {
+  const out = run('echo "{}" | node hooks/bootstrap.js');
+  if (out) JSON.parse(out);
+});
+
+test('bootstrap.js is idempotent (runs twice without error)', () => {
+  run('echo "{}" | node hooks/bootstrap.js');
+  const out = run('echo "{}" | node hooks/bootstrap.js');
+  if (out) JSON.parse(out);
+});
 
 test('audit-log.js returns {}', () => {
   const out = run('echo \'{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"},"tool_response":{}}\' | node hooks/audit-log.js');
@@ -239,6 +247,64 @@ for (const [file, name] of moduleTests) {
     skip('gateway loads without error (ws not installed)');
   }
 })();
+
+// ══════════════════════════════════════
+console.log('\n=== lib/errors.js ===');
+// ══════════════════════════════════════
+
+test('logError writes to stderr without throwing', () => {
+  const { logError } = require(path.join(HOOKS, 'lib', 'errors.js'));
+  // Should not throw
+  logError('test-module', 'test-action', new Error('test error'));
+});
+
+test('logError handles string errors', () => {
+  const { logError } = require(path.join(HOOKS, 'lib', 'errors.js'));
+  logError('test-module', 'test-action', 'string error');
+});
+
+test('ERROR_LOG path is absolute', () => {
+  const { ERROR_LOG } = require(path.join(HOOKS, 'lib', 'errors.js'));
+  assert(path.isAbsolute(ERROR_LOG), `ERROR_LOG not absolute: ${ERROR_LOG}`);
+});
+
+// ══════════════════════════════════════
+console.log('\n=== Services import paths ===');
+// ══════════════════════════════════════
+
+const serviceTests = [
+  'orchestrator.js', 'heartbeat.js', 'telegram-adapter.js',
+];
+for (const svc of serviceTests) {
+  test(`services/${svc} resolves imports`, () => {
+    // Verify the file can be required (imports resolve)
+    require(path.join(ROOT, 'services', svc));
+  });
+}
+
+// ══════════════════════════════════════
+console.log('\n=== Cross-platform bootstrap ===');
+// ══════════════════════════════════════
+
+test('bootstrap detects environment', () => {
+  // Just verify the module loads and env detection function works
+  const out = run('echo "{}" | node hooks/bootstrap.js 2>/dev/null');
+  if (out) {
+    const parsed = JSON.parse(out);
+    // Should have hookSpecificOutput or be empty
+    assert(parsed.hookSpecificOutput || Object.keys(parsed).length === 0, 'unexpected output shape');
+  }
+});
+
+test('deployed hooks match repo hooks', () => {
+  const deployed = path.join(process.env.HOME || '/root', '.claude', 'hooks');
+  if (fs.existsSync(deployed)) {
+    const repoFiles = fs.readdirSync(HOOKS).filter(f => f.endsWith('.js')).sort();
+    const deployedFiles = fs.readdirSync(deployed).filter(f => f.endsWith('.js')).sort();
+    assertEqual(repoFiles.length, deployedFiles.length,
+      `file count mismatch: repo=${repoFiles.length}, deployed=${deployedFiles.length}`);
+  }
+});
 
 // ══════════════════════════════════════
 console.log('\n=== Skills 2.0 ===');

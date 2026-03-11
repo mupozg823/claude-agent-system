@@ -14,24 +14,25 @@ const fs = require('fs');
 const path = require('path');
 const { AUDIT_DIR, LOGS_DIR, CHECKPOINT_DIR, QUEUE_DIR } = require('./lib/paths');
 const { auditFilePath, writeCheckpoint, appendJsonl } = require('./lib/utils');
+const { logError } = require('./lib/errors');
 
 // Quality gate integration (v4)
 let qualityGate = null;
-try { qualityGate = require('./quality-gate'); } catch { /* silent */ }
+try { qualityGate = require('./quality-gate'); } catch { /* OK: optional module */ }
 
 // Telemetry integration (v4)
 let telemetry = null;
-try { telemetry = require('./telemetry'); } catch { /* silent */ }
+try { telemetry = require('./telemetry'); } catch { /* OK: optional module */ }
 
 // Context engine integration (v4)
 let contextEngine = null;
-try { contextEngine = require('./context-engine'); } catch { /* silent */ }
+try { contextEngine = require('./context-engine'); } catch { /* OK: optional module */ }
 
 function logEvent(event, detail) {
   try {
     fs.mkdirSync(AUDIT_DIR, { recursive: true });
     appendJsonl(auditFilePath(), { ts: new Date().toISOString(), ev: event, ...detail });
-  } catch { /* silent */ }
+  } catch (e) { logError('stop-check', 'audit-log-write', e); }
 }
 
 // 세션 종료 마커
@@ -41,7 +42,7 @@ function writeSessionMarker() {
     const ts = new Date().toISOString().slice(0, 23).replace(/[T:.]/g, '-');
     const marker = path.join(LOGS_DIR, `.last-session-${ts}`);
     fs.writeFileSync(marker, `Session ended at ${new Date().toISOString()}\n`);
-  } catch { /* silent */ }
+  } catch (e) { logError('stop-check', 'session-marker-write', e); }
 }
 
 // 정리 작업
@@ -67,7 +68,7 @@ function cleanup() {
         if (now - fs.statSync(fp).mtimeMs > 14 * 86400000) fs.unlinkSync(fp);
       }
     }
-  } catch { /* silent */ }
+  } catch { /* OK: cleanup of old files is best-effort */ }
 }
 
 // 대기 큐 확인
@@ -77,9 +78,9 @@ function checkQueue() {
     if (!fs.existsSync(qFile)) return 0;
     const lines = fs.readFileSync(qFile, 'utf8').trim().split('\n').filter(Boolean);
     return lines.filter(l => {
-      try { return JSON.parse(l).status === 'pending'; } catch { /* silent */ return false; }
+      try { return JSON.parse(l).status === 'pending'; } catch { /* OK: malformed line skipped */ return false; }
     }).length;
-  } catch { /* silent */ return 0; }
+  } catch (e) { logError('stop-check', 'queue-read', e); return 0; }
 }
 
 async function main() {
@@ -87,7 +88,7 @@ async function main() {
   for await (const c of process.stdin) raw += c;
 
   let data;
-  try { data = JSON.parse(raw); } catch { /* silent */ data = {}; }
+  try { data = JSON.parse(raw); } catch { /* OK: fallback to empty object */ data = {}; }
 
   // 핵심: stop_hook_active=true → 무한루프 방지
   if (data.stop_hook_active) {
@@ -195,12 +196,12 @@ async function main() {
 
   // ── v4: Save structured snapshot before exit ──
   if (contextEngine) {
-    try { contextEngine.createSnapshot(data.session_id); } catch { /* silent */ }
+    try { contextEngine.createSnapshot(data.session_id); } catch (e) { logError('stop-check', 'context-snapshot', e); }
   }
 
   // ── v4: Flush telemetry ──
   if (telemetry) {
-    try { telemetry.flush(data.session_id); } catch { /* silent */ }
+    try { telemetry.flush(data.session_id); } catch { /* OK: telemetry flush is best-effort */ }
   }
 
   // 허용 + 체크포인트 + 정리

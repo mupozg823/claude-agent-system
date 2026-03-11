@@ -28,6 +28,7 @@ const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
 const { HOOKS_DIR, COMMANDS_DIR, ORCH_DIR, LOGS_DIR } = require('./lib/paths');
 const { localDate } = require('./lib/utils');
+const { logError } = require('./lib/errors');
 
 const CLAUDE = process.env.CLAUDE_BIN || 'claude';
 const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
@@ -78,7 +79,7 @@ function loadSkillMap() {
       const name = f.replace('.md', '');
       map[name] = { file: path.join(SKILLS_DIR, f), name };
     }
-  } catch { /* silent */ }
+  } catch (e) { logError('orchestrator', 'loadSkillMap', e); }
 
   return { skills: map, aliases };
 }
@@ -163,19 +164,19 @@ class Orchestrator extends EventEmitter {
         ctx.deps = Object.keys(pkg.dependencies || {}).length;
         ctx.devDeps = Object.keys(pkg.devDependencies || {}).length;
       }
-    } catch { /* silent */ }
+    } catch (e) { logError('orchestrator', 'collect:read-package', e); }
 
     // Collect directory structure (top-level only)
     try {
       ctx.files = fs.readdirSync(this.projectPath).filter(f => !f.startsWith('.')).slice(0, 30);
-    } catch { /* silent */ }
+    } catch (e) { logError('orchestrator', 'collect:read-dir', e); }
 
     // Check git status
     try {
       ctx.gitBranch = execSync('git branch --show-current', {
         cwd: this.projectPath, encoding: 'utf8', timeout: 5000
       }).trim();
-    } catch { /* silent */ }
+    } catch (e) { logError('orchestrator', 'collect:git-branch', e); }
 
     this.context = ctx;
     this.emit('context-collected', ctx);
@@ -519,7 +520,7 @@ class Orchestrator extends EventEmitter {
       });
       return result || '';
     } finally {
-      try { fs.unlinkSync(tmpFile); } catch { /* silent */ }
+      try { fs.unlinkSync(tmpFile); } catch { /* OK: temp file cleanup is best-effort */ }
     }
   }
 
@@ -561,7 +562,7 @@ class Orchestrator extends EventEmitter {
       execSync(`node "${ENGINE}" checkpoint "${result.status}: ${this.goal.slice(0, 60)}"`, {
         encoding: 'utf8', timeout: 5000,
       });
-    } catch { /* silent */ }
+    } catch (e) { logError('orchestrator', 'report:checkpoint', e); }
 
     // Write run log
     const logFile = path.join(LOGS_DIR, `orch-${this.runId}.md`);
@@ -701,16 +702,16 @@ function listRuns(limit = 10) {
           completed: data.completed?.length || 0,
           updatedAt: data.updatedAt,
         };
-      } catch { return { file: f, error: 'parse failed' }; }
+      } catch (e) { logError('orchestrator', 'listRuns:parse', e); return { file: f, error: 'parse failed' }; }
     });
-  } catch { return []; }
+  } catch (e) { logError('orchestrator', 'listRuns:readdir', e); return []; }
 }
 
 function getRunStatus(runId) {
   const file = path.join(RUNS_DIR, `${runId}.json`);
   if (!fs.existsSync(file)) return null;
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
-  catch { return null; }
+  catch (e) { logError('orchestrator', 'getRunStatus:parse', e); return null; }
 }
 
 // ── Utilities ──
@@ -725,7 +726,7 @@ function log(level, msg) {
   try {
     const logFile = path.join(LOGS_DIR, 'orchestrator.jsonl');
     fs.appendFileSync(logFile, JSON.stringify({ ts: new Date().toISOString(), level, msg }) + '\n');
-  } catch { /* silent */ }
+  } catch { /* OK: logging failure in the logger itself would risk infinite recursion */ }
 }
 
 // ── Broadcast Helper (when relay is available) ──
@@ -734,7 +735,7 @@ function broadcastToRelay(event, payload) {
   try {
     const outbox = path.join(RUNS_DIR, 'outbox.jsonl');
     fs.appendFileSync(outbox, JSON.stringify({ event, payload, ts: new Date().toISOString() }) + '\n');
-  } catch { /* silent */ }
+  } catch (e) { logError('orchestrator', 'broadcastToRelay', e); }
 }
 
 // ── CLI ──

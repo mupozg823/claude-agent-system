@@ -22,6 +22,7 @@ const fs = require('fs');
 const path = require('path');
 const { LOGS_DIR, AUDIT_DIR, CHECKPOINT_DIR, CONTEXTS_DIR, QUEUE_DIR, ORCH_DIR } = require('./lib/paths');
 const { localDate, writeCheckpoint: _writeCheckpoint, readJsonl, safeRead } = require('./lib/utils');
+const { logError } = require('./lib/errors');
 
 const DIRS = {
   logs: LOGS_DIR,
@@ -78,7 +79,7 @@ function queueList(statusFilter = 'pending') {
   if (!fs.existsSync(file)) return [];
   return fs.readFileSync(file, 'utf8').trim().split('\n')
     .filter(Boolean)
-    .map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } })
+    .map(l => { try { return JSON.parse(l); } catch { /* OK: skip malformed queue lines */ return null; } })
     .filter(e => e && (statusFilter === 'all' || e.status === statusFilter));
 }
 
@@ -95,7 +96,7 @@ function queueComplete(id) {
         return JSON.stringify(e);
       }
       return l;
-    } catch { /* silent */ return l; }
+    } catch (e) { logError('agent-engine', 'queue-complete-parse', e); return l; }
   });
   fs.writeFileSync(file, updated.join('\n') + '\n');
   return true;
@@ -117,11 +118,11 @@ function getStatus() {
       // Count by tool
       const toolCounts = {};
       for (const l of lines) {
-        try { const e = JSON.parse(l); toolCounts[e.tool] = (toolCounts[e.tool] || 0) + 1; } catch { /* silent */ }
+        try { const e = JSON.parse(l); toolCounts[e.tool] = (toolCounts[e.tool] || 0) + 1; } catch { /* OK: best-effort tool stats */ }
       }
       status.system.toolUsage = toolCounts;
     }
-  } catch { /* silent */ }
+  } catch { /* OK: audit stats are non-essential */ }
 
   // Checkpoint
   const cp = getLatestCheckpoint();
@@ -135,13 +136,13 @@ function getStatus() {
   try {
     const ctxFiles = fs.readdirSync(DIRS.contexts).filter(f => f.endsWith('.json'));
     status.savedContexts = ctxFiles.length;
-  } catch { /* silent */ status.savedContexts = 0; }
+  } catch { /* OK: context count is optional status info */ status.savedContexts = 0; }
 
   // Session markers
   try {
     const markers = fs.readdirSync(DIRS.logs).filter(f => f.startsWith('.last-session-'));
     status.recentSessions = markers.length;
-  } catch { /* silent */ }
+  } catch { /* OK: session marker count is optional */ }
 
   return status;
 }
@@ -159,7 +160,7 @@ function cleanup() {
         fs.unlinkSync(fp); results.deleted++;
       }
     }
-  } catch { /* silent */ results.errors++; }
+  } catch (e) { logError('agent-engine', 'cleanup-audit', e); results.errors++; }
 
   // 14-day checkpoints
   try {
@@ -169,7 +170,7 @@ function cleanup() {
         fs.unlinkSync(fp); results.deleted++;
       }
     }
-  } catch { /* silent */ results.errors++; }
+  } catch (e) { logError('agent-engine', 'cleanup-checkpoints', e); results.errors++; }
 
   // 7-day session markers
   try {
@@ -180,7 +181,7 @@ function cleanup() {
         fs.unlinkSync(fp); results.deleted++;
       }
     }
-  } catch { /* silent */ results.errors++; }
+  } catch (e) { logError('agent-engine', 'cleanup-sessions', e); results.errors++; }
 
   // Completed queue items older than 7 days
   const queueFile = path.join(DIRS.queue, 'commands.jsonl');
@@ -194,10 +195,10 @@ function cleanup() {
             results.deleted++; return false;
           }
           return true;
-        } catch { /* silent */ return true; }
+        } catch { /* OK: keep unparseable lines during cleanup */ return true; }
       });
       fs.writeFileSync(queueFile, kept.join('\n') + '\n');
-    } catch { /* silent */ results.errors++; }
+    } catch (e) { logError('agent-engine', 'cleanup-queue', e); results.errors++; }
   }
 
   return results;
@@ -220,14 +221,14 @@ function loadGlobalState() {
       data.running = (data.running || []).filter(r => now - new Date(r.ts).getTime() < 300_000);
       return data;
     }
-  } catch { /* silent */ }
+  } catch { /* OK: fall back to default state */ }
   return { maxConcurrent: DEFAULT_MAX_CONCURRENT, running: [], totalCompleted: 0, totalFailed: 0 };
 }
 
 function saveGlobalState(state) {
   try {
     fs.writeFileSync(GLOBAL_LOCK_FILE, JSON.stringify(state, null, 2));
-  } catch { /* silent */ }
+  } catch (e) { logError('agent-engine', 'save-global-state', e); }
 }
 
 function laneFile(sessionId) {
@@ -259,7 +260,7 @@ function laneList(sessionId, statusFilter = 'all') {
   if (!fs.existsSync(file)) return [];
   return fs.readFileSync(file, 'utf8').trim().split('\n')
     .filter(Boolean)
-    .map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } })
+    .map(l => { try { return JSON.parse(l); } catch (e) { logError('agent-engine', 'lane-list-parse', e); return null; } })
     .filter(e => e && (statusFilter === 'all' || e.status === statusFilter));
 }
 
@@ -287,7 +288,7 @@ function laneNext(sessionId) {
       }
       // Stale lock - remove it
       fs.unlinkSync(lock);
-    } catch { /* silent */ fs.unlinkSync(lock); }
+    } catch (e) { logError('agent-engine', 'lane-next-lock', e); fs.unlinkSync(lock); }
   }
 
   // Get next pending (priority: urgent > high > normal > low)
@@ -325,7 +326,7 @@ function laneComplete(sessionId, id, result = null) {
     try {
       const lockData = JSON.parse(fs.readFileSync(lock, 'utf8'));
       if (lockData.id === id) fs.unlinkSync(lock);
-    } catch { /* silent */ fs.unlinkSync(lock); }
+    } catch (e) { logError('agent-engine', 'lane-complete-lock', e); fs.unlinkSync(lock); }
   }
   // Update global state
   const globalState = loadGlobalState();
@@ -363,7 +364,7 @@ function laneUpdateStatus(sessionId, id, newStatus, result = null, error = null)
         return JSON.stringify(e);
       }
       return l;
-    } catch { /* silent */ return l; }
+    } catch (e) { logError('agent-engine', 'lane-update-parse', e); return l; }
   });
   fs.writeFileSync(file, updated.join('\n') + '\n');
   return true;
@@ -391,7 +392,7 @@ function globalStats() {
       const sessionId = f.replace('lane-', '').replace('.jsonl', '');
       sessionStats[sessionId] = laneStats(sessionId);
     }
-  } catch { /* silent */ }
+  } catch (e) { logError('agent-engine', 'global-stats-lanes', e); }
 
   return {
     maxConcurrent: state.maxConcurrent || DEFAULT_MAX_CONCURRENT,
@@ -417,7 +418,7 @@ function getMetrics() {
   if (!fs.existsSync(file)) return { total: 0, message: 'No audit log for today' };
 
   const lines = fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean);
-  const entries = lines.map(l => { try { return JSON.parse(l); } catch { /* silent */ return null; } }).filter(Boolean);
+  const entries = lines.map(l => { try { return JSON.parse(l); } catch { /* OK: best-effort metrics parsing */ return null; } }).filter(Boolean);
 
   let ok = 0, errors = 0, blocked = 0;
   const tools = {}, groups = {};
@@ -480,9 +481,9 @@ function dagList(limit = 10) {
         try {
           const d = JSON.parse(fs.readFileSync(path.join(ORCH_DIR, f), 'utf8'));
           return { runId: d.runId, goal: (d.goal || '').slice(0, 60), state: d.state, steps: d.dag?.length || 0 };
-        } catch { /* silent */ return { file: f }; }
+        } catch { /* OK: best-effort DAG summary */ return { file: f }; }
       });
-  } catch { /* silent */ return []; }
+  } catch (e) { logError('agent-engine', 'dag-list', e); return []; }
 }
 
 function dagStatus(runId) {
