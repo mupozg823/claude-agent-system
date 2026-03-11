@@ -46,11 +46,11 @@
 - graceful fallback: `try { require('./module') } catch {}`
 
 **약점:**
-- **Empty catch 패턴 만연**: 전체 128건의 `catch {}` (에러 삼킴)
-  - agent-engine.js: 23건, gateway.js: 21건
+- **Empty catch 패턴 만연**: 213개 try 블록 중 91개가 `catch {}` (43%)
+  - gateway.js: 13건, audit-log.js: 9건, stop-check.js: 8건
   - 디버깅 시 에러 원인 추적 불가능
-- **Dead code 가능성**: skill-router.js의 자기참조 (`CIRCULAR: skill-router.js <-> skill-router.js`)
-- **네이밍 불일치**: `localDate()` vs `auditFilePath()` vs `getGitState()` (접두사 혼재)
+- **Dead code**: 테스트에서 삭제된 `smart-approve.js` 참조 남아있음
+- **stdin 읽기 불일치**: pre-compact.js는 event-style, 나머지는 `for await` 패턴
 
 ### 2. 아키텍처 품질: 7/10
 
@@ -92,18 +92,20 @@
 - **DI 패턴 없음**: 전부 `require()` 직접 호출 → 모킹 어려움
 - **E2E 파이프라인 테스트 없음**: 훅 체인 전체 흐름 검증 불가
 
-### 5. 보안: 6/10
+### 5. 보안: 5/10
 
 **강점:**
 - 민감 파일 패턴 감지 (SENSITIVE 배열)
 - 금지 명령어 설정 (settings.json deny)
-- 입력 크기 제한 (`slice(0, 500)` 등)
+- 세션 ID 자동 절단, 입력 크기 제한 (`slice(0, 500)` 등)
 
 **약점:**
-- **execSync에 사용자 입력 전달 위험**: gateway.js L691에서 command 실행
-  - 명시적 입력 검증 없이 execSync 호출
+- **🔴 CRITICAL: telegram-adapter.js 커맨드 인젝션**
+  - L347, L575: 사용자 Telegram 메시지가 `execSync`에 전달
+  - `"` 이스케이프만 적용 — `$()`, 백틱, 줄바꿈 인젝션 미차단
+  - `isAllowed` 블록리스트 (8패턴)는 `base64 -d | bash` 등으로 우회 가능
+- **gateway.js L691**: execSync에 command 직접 전달
 - **로그에 민감 정보 가능**: summary에 command 전체 (500자) 기록
-- **감사 로그 접근 제어 없음**: JSONL 파일 평문, 암호화 없음
 
 ### 6. 성능: 7/10 (v6 이후)
 
@@ -150,11 +152,11 @@
 | 아키텍처 | 7/10 | 8/10 | -1 |
 | 신뢰성 | 5/10 | 7/10 | -2 |
 | 테스트 | 4/10 | 9/10 (997 tests) | **-5** |
-| 보안 | 6/10 | 8/10 (AgentShield) | -2 |
+| 보안 | **5/10** | 8/10 (AgentShield) | **-3** |
 | 성능 | 7/10 | 7/10 | 0 |
 | 문서화 | 7/10 | 7/10 | 0 |
 
-**종합: 6.0/10** (ECC 추정: 7.7/10)
+**종합: 5.7/10** (ECC 추정: 7.7/10)
 
 ### 우리 시스템의 차별화 포인트
 
@@ -173,25 +175,26 @@
 
 ## Part 4: 우선순위 개선 항목
 
-### P0 (즉시)
-1. **테스트 추가**: 신규 5개 모듈에 최소 50개 테스트 작성
-2. **Empty catch 정리**: `catch {}` → `catch (e) { log(e) }` 최소화
-3. **파일 락 구현**: agent-engine.js의 동시 쓰기에 lockfile 추가
+### P0 (즉시 — 보안/안정성)
+1. **🔴 telegram-adapter.js 커맨드 인젝션 수정** — 사용자 입력 새니타이징 강화
+2. **파일 락 구현**: agent-engine.js `queueComplete` read-modify-write 레이스 조건
+3. **깨진 테스트 수정**: 5/25 실패 (smart-approve 참조, 누락 deps)
 
-### P1 (1주 내)
-4. **게이트웨이 보안**: execSync 호출에 입력 검증/화이트리스트
-5. **메모리 안전**: TTLCache에 maxEntries 추가
-6. **인프라 데몬 분리**: gateway/relay/telegram을 hooks/에서 services/로 이동
+### P1 (1주 내 — 품질)
+4. **테스트 추가**: 신규 5개 모듈에 최소 50개 테스트 작성
+5. **Empty catch 정리**: 91개 `catch {}` → `catch (e) { stderr.write }` 변환
+6. **메모리 누수 수정**: telemetry의 unbounded 배열/Map, utils의 `_latestFileCache` 미정리
+7. **CLAUDE.md 정확성**: 모듈 수 17→22, 누락 모듈명 추가
 
-### P2 (1개월 내)
-7. **E2E 파이프라인 테스트**: 훅 체인 전체 흐름 자동 검증
-8. **아키텍처 문서**: 데이터 플로우 다이어그램 + API 레퍼런스
-9. **멀티모델 라우팅**: Opus/Sonnet/Haiku 자동 선택 (task complexity 기반)
+### P2 (1개월 내 — 아키텍처)
+8. **인프라 데몬 분리**: gateway/relay/telegram을 hooks/에서 services/로 이동
+9. **E2E 파이프라인 테스트**: 훅 체인 전체 흐름 자동 검증
+10. **아키텍처 문서**: 데이터 플로우 다이어그램 + API 레퍼런스
 
-### P3 (장기)
-10. **자기 진화 스캐폴드**: LIVE-SWE-AGENT 패턴 적용
-11. **크로스 플랫폼**: Cursor/Codex 호환성
-12. **공개 전환**: GitHub 공개 + 커뮤니티 빌딩
+### P3 (장기 — 혁신)
+11. **자기 진화 스캐폴드**: LIVE-SWE-AGENT 패턴 적용
+12. **크로스 플랫폼**: Cursor/Codex 호환성 (ECC 패턴 참고)
+13. **멀티모델 라우팅**: task complexity 기반 Opus/Sonnet/Haiku 자동 선택
 
 ---
 
