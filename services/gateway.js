@@ -32,8 +32,8 @@ const crypto = require('crypto');
 const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
 const WebSocket = require('ws');
-const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR, ORCH_DIR } = require('./lib/paths');
-const { localDate, auditFilePath } = require('./lib/utils');
+const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR, ORCH_DIR } = require('../hooks/lib/paths');
+const { localDate, auditFilePath } = require('../hooks/lib/utils');
 
 const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
 const ORCHESTRATOR = path.join(HOOKS_DIR, 'orchestrator.js');

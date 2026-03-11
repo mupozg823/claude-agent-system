@@ -66,8 +66,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$HOME/.claude/hooks/session-init.js\"",
-            "timeout": 5
+            "command": "node \"$HOME/.claude/hooks/bootstrap.js\"",
+            "timeout": 15
           }
         ]
       }

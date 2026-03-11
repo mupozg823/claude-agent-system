@@ -29,8 +29,8 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { execSync, execFileSync, spawn } = require('child_process');
-const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR } = require('./lib/paths');
-const { readJsonl, localDate } = require('./lib/utils');
+const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR } = require('../hooks/lib/paths');
+const { readJsonl, localDate } = require('../hooks/lib/utils');
 
 const CONFIG_FILE = path.join(CLAUDE_DIR, '.telegram-config.json');
 const DB_FILE = path.join(CLAUDE_DIR, 'telegram-sessions.db');

@@ -28,7 +28,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { createClient } = require('@supabase/supabase-js');
-const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR } = require('./lib/paths');
+const { CLAUDE_DIR, HOOKS_DIR, AUDIT_DIR, LOGS_DIR } = require('../hooks/lib/paths');
 
 const HOME = process.env.HOME || process.env.USERPROFILE;
 const CONFIG_FILE = path.join(CLAUDE_DIR, '.supabase-config.json');

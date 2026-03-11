@@ -26,8 +26,8 @@ const fs = require('fs');
 const path = require('path');
 const { EventEmitter } = require('events');
 const { execSync, spawn } = require('child_process');
-const { HOOKS_DIR, COMMANDS_DIR, ORCH_DIR, LOGS_DIR } = require('./lib/paths');
-const { localDate } = require('./lib/utils');
+const { HOOKS_DIR, COMMANDS_DIR, ORCH_DIR, LOGS_DIR } = require('../hooks/lib/paths');
+const { localDate } = require('../hooks/lib/utils');
 
 const CLAUDE = process.env.CLAUDE_BIN || 'claude';
 const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');

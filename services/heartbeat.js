@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const { CLAUDE_DIR, HOOKS_DIR, LOGS_DIR } = require('./lib/paths');
+const { CLAUDE_DIR, HOOKS_DIR, LOGS_DIR } = require('../hooks/lib/paths');
 const HEARTBEAT_MD = path.join(CLAUDE_DIR, 'HEARTBEAT.md');
 const HEARTBEAT_LOG = path.join(LOGS_DIR, 'heartbeat.jsonl');
 const ENGINE = path.join(HOOKS_DIR, 'agent-engine.js');
@@ -95,9 +95,12 @@ function executeTask(task) {
           log('relay-check', 'no config - skipped');
           return { skipped: true, reason: 'no .supabase-config.json' };
         }
-        // Check if relay process is running (look for node relay-supabase in process list)
+        // Check if relay process is running (cross-platform)
         try {
-          const ps = execSync('tasklist /FI "IMAGENAME eq node.exe" /FO CSV', { encoding: 'utf8', timeout: 5000 });
+          const psCmd = process.platform === 'win32'
+            ? 'tasklist /FI "IMAGENAME eq node.exe" /FO CSV'
+            : 'pgrep -af "node.*relay-supabase" || true';
+          const ps = execSync(psCmd, { encoding: 'utf8', timeout: 5000 });
           // Simple heuristic: if relay was started, there should be a relay log
           const relayLog = '/tmp/relay-remote.log';
           if (fs.existsSync(relayLog)) {
@@ -131,24 +134,40 @@ function executeTask(task) {
 }
 
 function installScheduler() {
-  const scriptPath = path.resolve(__filename).replace(/\//g, '\\');
+  const scriptPath = path.resolve(__filename);
   const taskName = 'ClaudeCodeHeartbeat';
 
   try {
-    // Windows Task Scheduler: 매 30분마다 실행
-    const cmd = `schtasks /create /tn "${taskName}" /tr "node \\"${scriptPath}\\"" /sc MINUTE /mo 30 /f`;
-    execSync(cmd, { encoding: 'utf8', stdio: 'pipe' });
+    if (process.platform === 'win32') {
+      const winPath = scriptPath.replace(/\//g, '\\');
+      const cmd = `schtasks /create /tn "${taskName}" /tr "node \\"${winPath}\\"" /sc MINUTE /mo 30 /f`;
+      execSync(cmd, { encoding: 'utf8', stdio: 'pipe' });
+    } else {
+      // Unix: cron job every 30 minutes
+      const cronLine = `*/30 * * * * node "${scriptPath}" >> "${path.join(LOGS_DIR, 'heartbeat-cron.log')}" 2>&1`;
+      const existing = (() => { try { return execSync('crontab -l 2>/dev/null', { encoding: 'utf8' }); } catch { return ''; } })();
+      if (!existing.includes('heartbeat.js')) {
+        const updated = existing.trimEnd() + '\n' + cronLine + '\n';
+        execSync(`echo '${updated}' | crontab -`, { encoding: 'utf8', stdio: 'pipe' });
+      }
+    }
     console.log(`[OK] Task "${taskName}" installed (every 30 minutes)`);
     log('install', 'scheduler installed');
   } catch (e) {
     console.error(`[FAIL] ${e.message}`);
-    console.log('Run as Administrator to install scheduler');
+    console.log(process.platform === 'win32' ? 'Run as Administrator to install scheduler' : 'Check cron permissions');
   }
 }
 
 function uninstallScheduler() {
   try {
-    execSync('schtasks /delete /tn "ClaudeCodeHeartbeat" /f', { encoding: 'utf8', stdio: 'pipe' });
+    if (process.platform === 'win32') {
+      execSync('schtasks /delete /tn "ClaudeCodeHeartbeat" /f', { encoding: 'utf8', stdio: 'pipe' });
+    } else {
+      const existing = (() => { try { return execSync('crontab -l 2>/dev/null', { encoding: 'utf8' }); } catch { return ''; } })();
+      const updated = existing.split('\n').filter(l => !l.includes('heartbeat.js')).join('\n');
+      execSync(`echo '${updated}' | crontab -`, { encoding: 'utf8', stdio: 'pipe' });
+    }
     console.log('[OK] Task removed');
     log('uninstall', 'scheduler removed');
   } catch (e) {
@@ -158,8 +177,14 @@ function uninstallScheduler() {
 
 function showStatus() {
   try {
-    const result = execSync('schtasks /query /tn "ClaudeCodeHeartbeat" /fo LIST', { encoding: 'utf8', stdio: 'pipe' });
-    console.log(result);
+    if (process.platform === 'win32') {
+      const result = execSync('schtasks /query /tn "ClaudeCodeHeartbeat" /fo LIST', { encoding: 'utf8', stdio: 'pipe' });
+      console.log(result);
+    } else {
+      const cron = (() => { try { return execSync('crontab -l 2>/dev/null', { encoding: 'utf8' }); } catch { return ''; } })();
+      const line = cron.split('\n').find(l => l.includes('heartbeat.js'));
+      console.log(line ? `[INFO] Cron: ${line}` : '[INFO] Heartbeat scheduler not installed');
+    }
   } catch {
     console.log('[INFO] Heartbeat scheduler not installed');
   }
